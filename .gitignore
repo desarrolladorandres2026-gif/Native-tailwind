@@ -1,0 +1,34 @@
+# Dependencias de Node.js (NO subir al repositorio)
+node_modules/
+**/node_modules/
+
+# Archivos de entorno (contienen claves secretas)
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+.expo/
+**/.expo/
+
+# Archivos de sistema operativo
+.DS_Store
+Thumbs.db
+
+# Cache
+.cache/
+**/.cache/
+
+# Archivos de túnel (URLs temporales)
+pinggy_url.txt
+tunnel_url.txt
