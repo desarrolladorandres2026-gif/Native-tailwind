@@ -1,4 +1,4 @@
-// CallScreen.tsx — Pantalla de llamada premium con glassmorphism
+// CallScreen.tsx — Pantalla de llamada con WebRTC real (audio + video)
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, Image, TouchableOpacity,
@@ -9,8 +9,21 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
+import Constants from 'expo-constants';
 import { useCall } from '../../context/CallContext';
 import * as Haptics from 'expo-haptics';
+
+// RTCView solo disponible en build nativo (no en Expo Go)
+const IS_EXPO_GO = Constants.executionEnvironment === 'storeClient';
+const RTCView: any = IS_EXPO_GO
+  ? null
+  : (() => { try { return require('react-native-webrtc').RTCView; } catch { return null; } })();
+
+// InCallManager para routing de audio (altavoz / auricular)
+let InCallManager: any = null;
+if (!IS_EXPO_GO) {
+  try { InCallManager = require('react-native-incall-manager').default; } catch {}
+}
 
 const { width, height } = Dimensions.get('window');
 
@@ -23,7 +36,11 @@ export default function CallScreen() {
     type: 'incoming' | 'outgoing' | 'active';
   }>();
 
-  const { endCall, acceptCall, rejectCall } = useCall();
+  const {
+    endCall, acceptCall, rejectCall,
+    toggleMute, toggleCamera,
+    localStream, remoteStream,
+  } = useCall();
 
   // ── Estado ─────────────────────────────────────────────────────────────────
   const [currentType, setCurrentType] = useState(type);
@@ -33,6 +50,15 @@ export default function CallScreen() {
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [isConnected, setIsConnected] = useState(type === 'active');
 
+  // Detectar cuando el stream remoto llega → llamada conectada
+  useEffect(() => {
+    if (remoteStream && !isConnected) {
+      console.log('🔊 [CallScreen] Stream remoto recibido → llamada activa');
+      setIsConnected(true);
+      setCurrentType('active');
+    }
+  }, [remoteStream]);
+
   // ── Animaciones ────────────────────────────────────────────────────────────
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const ring1Anim = useRef(new Animated.Value(1)).current;
@@ -41,13 +67,10 @@ export default function CallScreen() {
   const btnScaleAnim = useRef(new Animated.Value(0.85)).current;
 
   useEffect(() => {
-    // Fade in al entrar
     Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
-    // Botones entran con spring
     Animated.spring(btnScaleAnim, { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }).start();
   }, []);
 
-  // Pulsación del avatar cuando está llamando
   useEffect(() => {
     if (!isConnected) {
       const pulse = Animated.loop(
@@ -114,35 +137,68 @@ export default function CallScreen() {
     rejectCall();
   }, [rejectCall]);
 
-  const toggleMute = () => {
+  const handleMuteToggle = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setIsMuted(m => !m);
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    toggleMute(newMuted);   // ← conecta con WebRTC real
   };
 
-  const toggleSpeaker = () => {
+  const handleSpeakerToggle = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setIsSpeaker(s => !s);
+    const newSpeaker = !isSpeaker;
+    setIsSpeaker(newSpeaker);
+    try {
+      InCallManager?.setSpeakerphoneOn(newSpeaker);
+      InCallManager?.setForceSpeakerphoneOn(newSpeaker);
+      console.log('🔊 [CallScreen] Altavoz:', newSpeaker ? 'ENCENDIDO' : 'APAGADO');
+    } catch (e) {
+      console.warn('[CallScreen] InCallManager.setSpeakerphoneOn falló:', e);
+    }
   };
 
-  const toggleCamera = () => {
+  const handleCameraToggle = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setIsCameraOff(c => !c);
+    const newOff = !isCameraOff;
+    setIsCameraOff(newOff);
+    toggleCamera(newOff);   // ← conecta con WebRTC real
   };
+
+  // ── Video streams ──────────────────────────────────────────────────────────
+  const showVideo = isVideo === 'true';
+  const remoteStreamURL = remoteStream
+    ? (remoteStream as any).toURL?.() ?? null
+    : null;
+  const localStreamURL = localStream
+    ? (localStream as any).toURL?.() ?? null
+    : null;
 
   return (
     <View style={s.root}>
       <StatusBar barStyle="light-content" />
 
-      {/* ── Fondo: foto borrosa ─────────────────────────────────────────────── */}
-      <Image
-        source={{ uri: photo || 'https://via.placeholder.com/600' }}
-        style={StyleSheet.absoluteFill}
-        blurRadius={Platform.OS === 'android' ? 12 : 0}
-        resizeMode="cover"
-      />
-      {Platform.OS === 'ios' && (
-        <BlurView intensity={85} tint="dark" style={StyleSheet.absoluteFill} />
+      {/* ── Fondo: video remoto o foto ────────────────────────────────────── */}
+      {showVideo && remoteStreamURL && RTCView ? (
+        <RTCView
+          streamURL={remoteStreamURL}
+          style={StyleSheet.absoluteFill}
+          objectFit="cover"
+          mirror={false}
+        />
+      ) : (
+        <>
+          <Image
+            source={{ uri: photo || 'https://via.placeholder.com/600' }}
+            style={StyleSheet.absoluteFill}
+            blurRadius={Platform.OS === 'android' ? 12 : 0}
+            resizeMode="cover"
+          />
+          {Platform.OS === 'ios' && (
+            <BlurView intensity={85} tint="dark" style={StyleSheet.absoluteFill} />
+          )}
+        </>
       )}
+
       {/* Overlay degradado */}
       <LinearGradient
         colors={['rgba(5,0,20,0.65)', 'rgba(10,0,35,0.8)', 'rgba(5,0,20,0.9)']}
@@ -152,7 +208,7 @@ export default function CallScreen() {
       <Animated.View style={[{ flex: 1, opacity: fadeAnim }]}>
         <SafeAreaView style={s.safe}>
 
-          {/* ── Cabecera: tipo de llamada ──────────────────────────────────── */}
+          {/* ── Cabecera ──────────────────────────────────────────────────── */}
           <View style={s.topBar}>
             <View style={s.callTypeBadge}>
               <Ionicons
@@ -166,9 +222,8 @@ export default function CallScreen() {
             </View>
           </View>
 
-          {/* ── Centro: Avatar con anillos ─────────────────────────────────── */}
+          {/* ── Centro: Avatar con anillos (o video local en miniatura) ───── */}
           <View style={s.avatarSection}>
-            {/* Anillos pulsantes */}
             {!isConnected && (
               <>
                 <Animated.View style={[s.ring, s.ring1, { transform: [{ scale: ring1Anim }] }]} />
@@ -190,7 +245,27 @@ export default function CallScreen() {
 
             <Text style={s.callerName}>{name}</Text>
             <Text style={s.statusText}>{statusText()}</Text>
+
+            {/* Indicador de stream activo */}
+            {isConnected && (
+              <View style={s.streamIndicator}>
+                <View style={s.streamDot} />
+                <Text style={s.streamText}>Audio activo</Text>
+              </View>
+            )}
           </View>
+
+          {/* ── Video local en miniatura (esquina superior derecha) ─────────── */}
+          {showVideo && localStreamURL && isConnected && RTCView && (
+            <View style={s.localVideoContainer}>
+              <RTCView
+                streamURL={localStreamURL}
+                style={s.localVideo}
+                objectFit="cover"
+                mirror
+              />
+            </View>
+          )}
 
           {/* ── Footer: controles ─────────────────────────────────────────── */}
           <Animated.View style={[s.footer, { transform: [{ scale: btnScaleAnim }] }]}>
@@ -225,7 +300,7 @@ export default function CallScreen() {
                   <View style={s.ctrlGroup}>
                     <TouchableOpacity
                       style={[s.ctrlBtn, isMuted && s.ctrlBtnActive]}
-                      onPress={toggleMute}
+                      onPress={handleMuteToggle}
                     >
                       <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={22} color="white" />
                     </TouchableOpacity>
@@ -235,7 +310,7 @@ export default function CallScreen() {
                   <View style={s.ctrlGroup}>
                     <TouchableOpacity
                       style={[s.ctrlBtn, isSpeaker && s.ctrlBtnActive]}
-                      onPress={toggleSpeaker}
+                      onPress={handleSpeakerToggle}
                     >
                       <Ionicons name={isSpeaker ? 'volume-high' : 'volume-medium'} size={22} color="white" />
                     </TouchableOpacity>
@@ -246,7 +321,7 @@ export default function CallScreen() {
                     <View style={s.ctrlGroup}>
                       <TouchableOpacity
                         style={[s.ctrlBtn, isCameraOff && s.ctrlBtnActive]}
-                        onPress={toggleCamera}
+                        onPress={handleCameraToggle}
                       >
                         <Ionicons name={isCameraOff ? 'videocam-off' : 'videocam'} size={22} color="white" />
                       </TouchableOpacity>
@@ -278,7 +353,6 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#050010' },
   safe: { flex: 1, justifyContent: 'space-between', paddingVertical: 20 },
 
-  // Top bar
   topBar: { alignItems: 'center', paddingTop: 8 },
   callTypeBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -288,7 +362,6 @@ const s = StyleSheet.create({
   },
   callTypeText: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '600' },
 
-  // Avatar section
   avatarSection: { alignItems: 'center', flex: 1, justifyContent: 'center' },
   ring: {
     position: 'absolute',
@@ -324,6 +397,44 @@ const s = StyleSheet.create({
     fontSize: 17, color: 'rgba(255,255,255,0.65)',
     marginTop: 6, fontWeight: '500',
   },
+
+  // Indicador de audio activo
+  streamIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+    backgroundColor: 'rgba(52,199,89,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(52,199,89,0.4)',
+  },
+  streamDot: {
+    width: 8, height: 8, borderRadius: 4,
+    backgroundColor: '#34C759',
+  },
+  streamText: { color: '#34C759', fontSize: 12, fontWeight: '600' },
+
+  // Video local en miniatura
+  localVideoContainer: {
+    position: 'absolute',
+    top: 90,
+    right: 16,
+    width: 100,
+    height: 140,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.3)',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  localVideo: { flex: 1 },
 
   // Footer controls
   footer: { paddingHorizontal: 30, paddingBottom: 10, alignItems: 'center' },

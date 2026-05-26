@@ -167,6 +167,14 @@ const discover = async (req, res) => {
       // Verifica que el array de fotos tenga al menos N elementos
       filtro[`photos.${settings.min_photos - 1}`] = { $exists: true };
     }
+    // Filtro por qué busca el usuario (buscando)
+    if (settings.looking_for && settings.looking_for !== 'ALL' && settings.looking_for !== '') {
+      filtro.buscando = settings.looking_for;
+    }
+    // Filtro por intereses compartidos (al menos uno de los seleccionados)
+    if (settings.interests_filter && settings.interests_filter.length > 0) {
+      filtro['interests.name'] = { $in: settings.interests_filter };
+    }
 
     const usuarios = await Usuario.find(filtro)
       .select('first_name last_name username bio profile_picture photos interests gender birth_date latitude longitude is_verified ciudad pais location_label social_friend_ids buscando')

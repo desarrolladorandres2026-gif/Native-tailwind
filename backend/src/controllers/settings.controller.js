@@ -22,6 +22,7 @@ const actualizarSettings = async (req, res) => {
     const camposPermitidos = [
       'max_distance', 'min_age', 'max_age', 'show_me',
       'verified_only', 'has_bio_only', 'min_photos',
+      'looking_for', 'interests_filter',
       'notif_matches', 'notif_messages', 'notif_recomend',
       'show_distance', 'show_age', 'profile_visible',
     ];

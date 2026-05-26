@@ -14,11 +14,47 @@ function getSocketUrl(): string {
   return host ? `http://${host}:3000` : 'http://localhost:3000';
 }
 
+// ── Tipos de sugerencia de cita ──────────────────────────────────────────────
+export interface DateSuggestionRestaurant {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  categoria: string;
+  ambiente: string;
+  direccion: string;
+  foto_portada: { url: string; public_id: string } | null;
+  fotos: Array<{ url: string; public_id: string }>;
+  precio_promedio: string;
+  horario: string;
+  menu: Array<{ nombre: string; descripcion: string; precio: string; foto?: { url: string } | null }>;
+}
+
+export interface DateSuggestion {
+  matchId: string;
+  restaurante: DateSuggestionRestaurant;
+  sugerencia: {
+    fecha: string;
+    mensaje?: string;
+  };
+  recomendacion: {
+    restauranteId: string;
+    asociadoId: string;
+    estado: 'pendiente' | 'aceptada' | 'rechazada';
+    user1Acepta: boolean;
+    user2Acepta: boolean;
+    fechaSugerida: string;
+  };
+}
+
 export function useChat(matchedUserId: string) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [sending,  setSending]  = useState(false);
   const [myId,     setMyId]     = useState<string | null>(null);
+
+  // ── Estado de sugerencia de cita ─────────────────────────────────────────
+  const [dateSuggestion, setDateSuggestion] = useState<DateSuggestion | null>(null);
+  const [dateLoading, setDateLoading] = useState(false);
 
   const socketRef  = useRef<Socket | null>(null);
   const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -91,6 +127,27 @@ export function useChat(matchedUserId: string) {
         if (involucrado) addMessages([msg]);
       });
 
+      // ── Listener de sugerencia de cita ─────────────────────────────────
+      socket.on('cita:sugerencia', (data: DateSuggestion) => {
+        console.log('💕 Sugerencia de cita recibida:', data.restaurante?.nombre);
+        setDateSuggestion(data);
+      });
+
+      // ── Listener de nueva sugerencia (otro lugar) ──────────────────────
+      socket.on('cita:nueva-sugerencia', (data: DateSuggestion) => {
+        console.log('🔄 Nueva sugerencia:', data.restaurante?.nombre);
+        setDateSuggestion(data);
+        setDateLoading(false);
+      });
+
+      // ── Listener de estado actualizado ─────────────────────────────────
+      socket.on('cita:estado-actualizado', (data: any) => {
+        setDateSuggestion(prev => {
+          if (!prev || prev.matchId !== data.matchId) return prev;
+          return { ...prev, recomendacion: data.recomendacion };
+        });
+      });
+
       socket.on('connect_error', (err) => {
         console.warn('Socket error, usando polling HTTP:', err.message);
         // Si el socket falla, activar polling de respaldo
@@ -148,5 +205,49 @@ export function useChat(matchedUserId: string) {
     }
   }, [matchedUserId, addMessages]);
 
-  return { messages, loading, sending, sendMessage, myId };
+  // ── Aceptar cita ───────────────────────────────────────────────────────────
+  const acceptDate = useCallback(async (matchId: string) => {
+    setDateLoading(true);
+    try {
+      const res = await api.post<{ recomendacion: any }>(`/matches/${matchId}/accept-date`, {});
+      setDateSuggestion(prev => {
+        if (!prev) return prev;
+        return { ...prev, recomendacion: res.recomendacion };
+      });
+    } catch (e: any) {
+      console.error('Error accepting date:', e);
+    } finally {
+      setDateLoading(false);
+    }
+  }, []);
+
+  // ── Rechazar cita ──────────────────────────────────────────────────────────
+  const rejectDate = useCallback(async (matchId: string) => {
+    setDateLoading(true);
+    try {
+      await api.post(`/matches/${matchId}/reject-date`, {});
+      setDateSuggestion(null);
+    } catch (e: any) {
+      console.error('Error rejecting date:', e);
+    } finally {
+      setDateLoading(false);
+    }
+  }, []);
+
+  // ── Sugerir otro lugar ─────────────────────────────────────────────────────
+  const requestNewPlace = useCallback(async (matchId: string) => {
+    setDateLoading(true);
+    try {
+      const res = await api.post<{ restaurante: any; recomendacion: any }>(`/matches/${matchId}/suggest-new-place`, {});
+      // El socket emitirá 'cita:nueva-sugerencia' a ambos, lo cual actualiza dateSuggestion
+    } catch (e: any) {
+      console.error('Error requesting new place:', e);
+      setDateLoading(false);
+    }
+  }, []);
+
+  return {
+    messages, loading, sending, sendMessage, myId,
+    dateSuggestion, dateLoading, acceptDate, rejectDate, requestNewPlace,
+  };
 }

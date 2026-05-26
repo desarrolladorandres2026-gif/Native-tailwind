@@ -22,6 +22,8 @@ import { getAge } from '../components/utils/age';
 import { useTheme } from '../theme/ThemeContext';
 
 const { width: W } = Dimensions.get('window');
+// Offset necesario para que el KAV no sobrecompense en Android
+const KAV_OFFSET = Platform.OS === 'android' ? 0 : 0;
 
 const INTERESTS_OPTIONS = [
   'Música', 'Baile', 'Cine', 'Viajes', 'Gastronomía', 
@@ -69,10 +71,10 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isValidationActive, setIsValidationActive] = useState(false);
 
-  // Animaciones
-  const stepAnim = useRef(new Animated.Value(0)).current;
+  // Animaciones (sin translateX horizontal — causaba el desconfigurado con teclado)
   const progressAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
   const checkAnim = useRef(new Animated.Value(0)).current;
 
   // 0: Bienvenida
@@ -91,22 +93,20 @@ export default function RegisterScreen() {
     if (visualStep < 0) visualStep = 0;
     if (visualStep > 5) visualStep = 5;
 
+    // Animar progreso
+    Animated.spring(progressAnim, {
+      toValue: visualStep,
+      useNativeDriver: false,
+      tension: 40,
+      friction: 8,
+    }).start();
+
+    // Fade + slide del contenido del paso (vertical, no horizontal)
+    slideAnim.setValue(20);
+    fadeAnim.setValue(0);
     Animated.parallel([
-      Animated.spring(progressAnim, {
-        toValue: visualStep,
-        useNativeDriver: false,
-        tension: 40,
-        friction: 8,
-      }),
-      Animated.timing(stepAnim, {
-        toValue: -step * W,
-        duration: 450,
-        useNativeDriver: true,
-      }),
-      Animated.sequence([
-        Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
-        Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
-      ])
+      Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, tension: 60, friction: 10, useNativeDriver: true }),
     ]).start();
 
     if (step === 7) {
@@ -530,9 +530,9 @@ export default function RegisterScreen() {
       
       <SafeAreaView style={{ flex: 1 }}>
         <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior="padding"
           style={{ flex: 1 }}
-          keyboardVerticalOffset={Platform.OS === 'android' ? 30 : 0}
+          keyboardVerticalOffset={Platform.OS === 'android' ? 20 : 0}
         >
           
           {/* Header (No se muestra en Bienvenida ni en Éxito) */}
@@ -556,36 +556,22 @@ export default function RegisterScreen() {
 
           {/* Error Box */}
           {error && step < 7 && (
-            <Animated.View style={[s.errorBox, { backgroundColor: `${colors.error}15` }]}>
+            <View style={[s.errorBox, { backgroundColor: `${colors.error}15` }]}>
               <Ionicons name="alert-circle" size={20} color={colors.error} />
               <Text style={[s.errorText, { color: colors.error }]}>{error}</Text>
-            </Animated.View>
+            </View>
           )}
 
-          {/* Formulario / Pasos */}
-          <ScrollView 
-            horizontal pagingEnabled={false} scrollEnabled={false}
-            showsHorizontalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ width: W * totalSteps }}
+          {/* Solo renderizamos el paso activo — evita el conflicto con el teclado */}
+          <ScrollView
             style={{ flex: 1 }}
+            contentContainerStyle={s.stepScrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
           >
-            <Animated.View style={[s.slidesContainer, { transform: [{ translateX: stepAnim }] }]}>
-              {Array.from({ length: totalSteps }).map((_, i) => (
-                <View key={i} style={{ width: W, flex: 1 }}>
-                  {Math.abs(i - step) <= 1 ? (
-                    <ScrollView 
-                      contentContainerStyle={s.stepScrollContent} 
-                      showsVerticalScrollIndicator={false}
-                      keyboardShouldPersistTaps="handled"
-                    >
-                      <Animated.View style={{ opacity: fadeAnim, flex: 1 }}>
-                        {renderStep(i)}
-                      </Animated.View>
-                    </ScrollView>
-                  ) : <View style={{ flex: 1 }} />}
-                </View>
-              ))}
+            <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+              {renderStep(step)}
             </Animated.View>
           </ScrollView>
 
@@ -667,7 +653,7 @@ const s = StyleSheet.create({
   },
   progressWrap: { flex: 1, paddingHorizontal: 20 },
   slidesContainer: { flexDirection: 'row', flex: 1 },
-  stepScrollContent: { paddingHorizontal: 25, paddingBottom: 40, flexGrow: 1, justifyContent: 'center' },
+  stepScrollContent: { paddingHorizontal: 25, paddingTop: 10, paddingBottom: 40, flexGrow: 1 },
   
   stepTitle: {
     fontSize: 34, fontWeight: '800',

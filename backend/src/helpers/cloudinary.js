@@ -88,6 +88,23 @@ const uploadPostImage = (buffer, userId) =>
     transformation: [{ width: 1200, crop: 'limit', quality: 'auto' }],
   });
 
+// ── Subir imagen desde base64 string ─────────────────────────────────────────
+/**
+ * @param {string} base64 — string base64 de la imagen (con o sin prefijo data:image/...)
+ * @param {string} folder — carpeta en Cloudinary (ej: 'restaurantes/userId')
+ * @returns {Promise<{ secure_url: string, public_id: string }>}
+ */
+const uploadImage = async (base64, folder = 'debuta/general') => {
+  const dataUri = base64.startsWith('data:') ? base64 : `data:image/jpeg;base64,${base64}`;
+  const result = await cloudinary.uploader.upload(dataUri, {
+    folder,
+    resource_type: 'image',
+    transformation: [{ width: 1200, crop: 'limit', quality: 'auto:low' }],
+    timeout: 60000,
+  });
+  return result;
+};
+
 // ── Eliminar imagen por public_id ─────────────────────────────────────────────
 /**
  * @param {string} publicId
@@ -107,5 +124,6 @@ module.exports = {
   uploadGalleryPhoto,
   uploadCoverPhoto,
   uploadPostImage,
+  uploadImage,
   deleteImage,
 };

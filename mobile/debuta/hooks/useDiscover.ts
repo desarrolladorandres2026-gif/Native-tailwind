@@ -56,5 +56,9 @@ export function useDiscover() {
     }
   }, []);
 
-  return { profiles, loading, swiping, swipe, refetch: fetchProfiles };
+  const prependProfile = useCallback((profile: UserProfile) => {
+    setProfiles(prev => [profile, ...prev.filter(p => p.id !== profile.id)]);
+  }, []);
+
+  return { profiles, loading, swiping, swipe, refetch: fetchProfiles, prependProfile };
 }

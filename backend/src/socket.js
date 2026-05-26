@@ -3,12 +3,23 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const Mensaje = require('./models/mensaje.model');
 const Match = require('./models/match.model');
+const Usuario = require('./models/usuario.model');
+const Restaurante = require('./models/restaurante.model');
 
 let io;
 
 // ── Mapa de presencia en memoria ─────────────────────────────────────────────
 // userId (string) → Date de conexión
 const onlineUsers = new Map();
+
+// ── Helper: generar día/hora sugerida ────────────────────────────────────────
+const getDiaSugerido = () => {
+  const dias = ['Sábado', 'Viernes', 'Domingo'];
+  const horas = ['7:00 PM', '7:30 PM', '8:00 PM', '8:30 PM', '9:00 PM'];
+  const dia = dias[Math.floor(Math.random() * dias.length)];
+  const hora = horas[Math.floor(Math.random() * horas.length)];
+  return `${dia} ${hora}`;
+};
 
 const initSocket = (server) => {
   io = new Server(server, { cors: { origin: '*' } });
@@ -75,10 +86,88 @@ const initSocket = (server) => {
           content: content?.trim(),
         });
 
-        const payload = mensaje.toJSON();
+        // Enriquecer payload con datos del remitente para las notificaciones
+        const sender = await Usuario.findById(yoId)
+          .select('first_name username profile_picture')
+          .lean();
+
+        const payload = {
+          ...mensaje.toJSON(),
+          senderName:  sender?.first_name || sender?.username || 'Alguien',
+          senderPhoto: sender?.profile_picture?.url || sender?.profile_picture || null,
+        };
         io.to(`user:${paraId}`)
           .to(`user:${usuarioId}`)
           .emit('mensaje:nuevo', payload);
+
+        // ── Lógica de sugerencia de primera cita al 5to mensaje ───────────
+        // Solo si no hay una recomendación activa ya
+        if (!match.recomendacion?.restauranteId) {
+          const totalMensajes = await Mensaje.countDocuments({ matchId: match._id });
+
+          if (totalMensajes === 5) {
+            // Buscar un restaurante activo con al menos nombre
+            const restaurantes = await Restaurante.find({
+              activo: true,
+              nombre: { $ne: '' },
+            }).lean();
+
+            if (restaurantes.length > 0) {
+              const restaurante = restaurantes[Math.floor(Math.random() * restaurantes.length)];
+              const fechaSugerida = getDiaSugerido();
+
+              // Guardar la recomendación en el match
+              match.recomendacion = {
+                restauranteId: restaurante._id,
+                asociadoId: restaurante.asociadoId,
+                estado: 'pendiente',
+                user1Acepta: false,
+                user2Acepta: false,
+                fechaSugerida,
+                sugeridaEn: new Date(),
+              };
+              await match.save();
+
+              // Obtener nombres de ambos usuarios para el mensaje bonito
+              const usuarios = await Usuario.find({ _id: { $in: match.usuarios } })
+                .select('first_name')
+                .lean();
+
+              const nombres = usuarios.map(u => u.first_name).filter(Boolean);
+
+              // Emitir sugerencia a ambos usuarios
+              const sugerenciaPayload = {
+                matchId: String(match._id),
+                restaurante: {
+                  id: String(restaurante._id),
+                  nombre: restaurante.nombre,
+                  descripcion: restaurante.descripcion || '',
+                  categoria: restaurante.categoria || '',
+                  ambiente: restaurante.ambiente || '',
+                  direccion: restaurante.direccion || '',
+                  foto_portada: restaurante.foto_portada || null,
+                  fotos: (restaurante.fotos || []).slice(0, 5),
+                  precio_promedio: restaurante.precio_promedio || '',
+                  horario: restaurante.horario || '',
+                  menu: (restaurante.menu || []).slice(0, 3),
+                },
+                sugerencia: {
+                  fecha: fechaSugerida,
+                  mensaje: nombres.length === 2
+                    ? `¡${nombres[0]} y ${nombres[1]} se la llevan muy bien! 💕`
+                    : '¡Se la llevan muy bien! 💕',
+                },
+                recomendacion: match.recomendacion,
+              };
+
+              io.to(`user:${String(match.usuarios[0])}`)
+                .to(`user:${String(match.usuarios[1])}`)
+                .emit('cita:sugerencia', sugerenciaPayload);
+
+              console.log(`💑 Sugerencia de cita enviada para match ${match._id} → ${restaurante.nombre}`);
+            }
+          }
+        }
 
       } catch (err) {
         console.error('socket mensaje:enviar:', err);

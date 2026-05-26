@@ -1,19 +1,25 @@
-// CallContext.tsx — Gestión global de llamadas con toast premium
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+// CallContext.tsx — Gestión global de llamadas con WebRTC real
+import React, {
+  createContext, useContext, useEffect, useState,
+  useCallback, useRef, useMemo,
+} from 'react';
 import { useSocket } from './SocketContext';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import {
   StyleSheet, View, Text, Image, TouchableOpacity,
-  Animated, Dimensions, Platform,
+  Animated, Dimensions, Platform, Modal, Alert, Linking,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAudioPlayer } from 'expo-audio';
-// SafeAreaInsets is handled via Platform constants below
+import Constants from 'expo-constants';
+import { useWebRTC, requestMediaPermissions } from '../hooks/useWebRTC';
+import type { WebRTCStream as MediaStream } from '../hooks/useWebRTC';
 
 const { width } = Dimensions.get('window');
+const IS_EXPO_GO = Constants.executionEnvironment === 'storeClient';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 interface CallInfo {
@@ -28,20 +34,28 @@ interface CallContextType {
   incomingCall: CallInfo | null;
   activeCall: CallInfo | null;
   isOutgoing: boolean;
+  localStream: MediaStream | null;
+  remoteStream: MediaStream | null;
   initiateCall: (toId: string, name: string, photo: string | undefined, isVideo: boolean) => void;
   acceptCall: () => void;
   rejectCall: () => void;
   endCall: () => void;
+  toggleMute: (muted: boolean) => void;
+  toggleCamera: (off: boolean) => void;
 }
 
 const CallContext = createContext<CallContextType>({
   incomingCall: null,
   activeCall: null,
   isOutgoing: false,
+  localStream: null,
+  remoteStream: null,
   initiateCall: () => {},
   acceptCall: () => {},
   rejectCall: () => {},
   endCall: () => {},
+  toggleMute: () => {},
+  toggleCamera: () => {},
 });
 
 // ── Toast de llamada entrante ─────────────────────────────────────────────────
@@ -55,7 +69,6 @@ function IncomingCallToast({ call, onAccept, onReject }: {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    // Slide down from top
     Animated.spring(slideAnim, {
       toValue: safeTop,
       useNativeDriver: true,
@@ -63,7 +76,6 @@ function IncomingCallToast({ call, onAccept, onReject }: {
       friction: 8,
     }).start();
 
-    // Pulse animation for the icon
     const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.15, duration: 600, useNativeDriver: true }),
@@ -71,7 +83,6 @@ function IncomingCallToast({ call, onAccept, onReject }: {
       ])
     );
     pulse.start();
-
     return () => pulse.stop();
   }, []);
 
@@ -87,67 +98,68 @@ function IncomingCallToast({ call, onAccept, onReject }: {
   };
 
   return (
-    <Animated.View style={[
-      s.toast,
-      { transform: [{ translateY: slideAnim }] },
-    ]}>
-      <BlurView intensity={95} tint="dark" style={s.toastBlur}>
-        <LinearGradient
-          colors={['rgba(139,92,246,0.25)', 'rgba(217,70,239,0.15)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-
-        <View style={s.toastInner}>
-          {/* Avatar + Pulse ring */}
-          <View style={s.avatarZone}>
-            <Animated.View style={[s.pulseRing, { transform: [{ scale: pulseAnim }] }]} />
-            <Image
-              source={{ uri: call.callerPhoto || 'https://via.placeholder.com/80' }}
-              style={s.toastAvatar}
+    <Modal
+      visible
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={() => dismiss('reject')}
+    >
+      <View style={s.modalOverlay} pointerEvents="box-none">
+        <Animated.View style={[s.toast, { transform: [{ translateY: slideAnim }] }]}>
+          <BlurView intensity={95} tint="dark" style={s.toastBlur}>
+            <LinearGradient
+              colors={['rgba(139,92,246,0.25)', 'rgba(217,70,239,0.15)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
             />
-          </View>
-
-          {/* Info */}
-          <View style={s.toastInfo}>
-            <Text style={s.toastName} numberOfLines={1}>{call.callerName}</Text>
-            <View style={s.toastTypeBadge}>
-              <Ionicons
-                name={call.isVideo ? 'videocam' : 'call'}
-                size={11}
-                color="rgba(255,255,255,0.8)"
-              />
-              <Text style={s.toastTypeText}>
-                {call.isVideo ? 'Video llamada' : 'Llamada de voz'}
-              </Text>
+            <View style={s.toastInner}>
+              <View style={s.avatarZone}>
+                <Animated.View style={[s.pulseRing, { transform: [{ scale: pulseAnim }] }]} />
+                <Image
+                  source={{ uri: call.callerPhoto || 'https://via.placeholder.com/80' }}
+                  style={s.toastAvatar}
+                />
+              </View>
+              <View style={s.toastInfo}>
+                <Text style={s.toastName} numberOfLines={1}>{call.callerName}</Text>
+                <View style={s.toastTypeBadge}>
+                  <Ionicons
+                    name={call.isVideo ? 'videocam' : 'call'}
+                    size={11}
+                    color="rgba(255,255,255,0.8)"
+                  />
+                  <Text style={s.toastTypeText}>
+                    {call.isVideo ? 'Video llamada' : 'Llamada de voz'}
+                  </Text>
+                </View>
+              </View>
+              <View style={s.toastActions}>
+                <TouchableOpacity
+                  style={[s.toastBtn, s.rejectBtn]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                    dismiss('reject');
+                  }}
+                >
+                  <Ionicons name="close" size={22} color="white" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[s.toastBtn, s.acceptBtn]}
+                  onPress={() => {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    dismiss('accept');
+                  }}
+                >
+                  <Ionicons name={call.isVideo ? 'videocam' : 'call'} size={20} color="white" />
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-
-          {/* Acciones */}
-          <View style={s.toastActions}>
-            <TouchableOpacity
-              style={[s.toastBtn, s.rejectBtn]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                dismiss('reject');
-              }}
-            >
-              <Ionicons name="close" size={22} color="white" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[s.toastBtn, s.acceptBtn]}
-              onPress={() => {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                dismiss('accept');
-              }}
-            >
-              <Ionicons name={call.isVideo ? 'videocam' : 'call'} size={20} color="white" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </BlurView>
-    </Animated.View>
+          </BlurView>
+        </Animated.View>
+      </View>
+    </Modal>
   );
 }
 
@@ -155,11 +167,32 @@ function IncomingCallToast({ call, onAccept, onReject }: {
 export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { socket } = useSocket();
   const [incomingCall, setIncomingCall] = useState<CallInfo | null>(null);
-  const [activeCall, setActiveCall] = useState<CallInfo | null>(null);
-  const [isOutgoing, setIsOutgoing] = useState(false);
-  // Ref para navegación segura (evitar navigate antes de que el stack esté listo)
-  const canNavigate = useRef(false);
-  // ── Audio: ringtone con expo-audio (compatible con Expo Go SDK 55) ──────────
+  const [activeCall, setActiveCall]     = useState<CallInfo | null>(null);
+  const [isOutgoing, setIsOutgoing]     = useState(false);
+
+  // Guards para evitar operaciones duplicadas
+  const acceptingRef   = useRef(false);
+  const initiatingRef  = useRef(false);
+  const canNavigate    = useRef(false);
+
+  // Ref para acceder al activeCall actual dentro de callbacks del socket
+  const activeCallRef = useRef<CallInfo | null>(null);
+  useEffect(() => { activeCallRef.current = activeCall; }, [activeCall]);
+
+  // ── WebRTC ────────────────────────────────────────────────────────────
+  const {
+    localStream,
+    remoteStream,
+    createOffer,
+    createAnswer,
+    setRemoteAnswer,
+    addIceCandidate,
+    toggleMute: rtcToggleMute,
+    toggleCamera: rtcToggleCamera,
+    cleanup: rtcCleanup,
+  } = useWebRTC(socket);
+
+  // ── Audio: ringtone ───────────────────────────────────────────────────
   const ringtonePlayer = useAudioPlayer(
     require('../assets/sounds/ringtone.m4a')
   );
@@ -183,58 +216,140 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [ringtonePlayer]);
 
   useEffect(() => {
-    // Permitir navegación después del primer render
     const t = setTimeout(() => { canNavigate.current = true; }, 800);
     return () => clearTimeout(t);
   }, []);
 
+  // ── Reset de guards al limpiar ────────────────────────────────────────
+  const fullCleanup = useCallback(() => {
+    acceptingRef.current  = false;
+    initiatingRef.current = false;
+    rtcCleanup();
+  }, [rtcCleanup]);
+
+  // ── Escuchar eventos del socket ───────────────────────────────────────
   useEffect(() => {
     if (!socket) return;
 
-    const handleIncoming = (data: CallInfo) => {
+    // Llamada entrante: el receptor recibe la oferta SDP real
+    const handleIncoming = async (data: any) => {
       console.log('📞 [CALL] Llamada entrante de:', data.callerName, '| fromId:', data.fromId);
-      setIncomingCall(data);
+      console.log('📞 [CALL] signalData recibido:', JSON.stringify({
+        type:      data.signalData?.type,
+        hasSdp:    !!data.signalData?.sdp,
+        sdpLength: data.signalData?.sdp?.length ?? 0,
+      }));
+
+      // Validar que llega la oferta SDP
+      if (!data.signalData?.sdp || data.signalData?.type !== 'offer') {
+        console.error('❌ [CALL] handleIncoming: signalData inválido o sin SDP', data.signalData);
+        return;
+      }
+
+      const callInfo: CallInfo = {
+        fromId:      data.fromId,
+        callerName:  data.callerName,
+        callerPhoto: data.callerPhoto,
+        isVideo:     data.isVideo,
+        signalData:  data.signalData,
+      };
+      setIncomingCall(callInfo);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       playRingtone();
     };
 
-    const handleAccepted = (data: { signalData: any; answererId: string }) => {
-      console.log('✅ [CALL] Llamada aceptada por:', data.answererId);
+    // El llamante recibe la respuesta SDP del receptor
+    const handleAccepted = async (data: { signalData: any; answererId: string }) => {
+      console.log('✅ [CALL] Llamada aceptada por', data.answererId);
+      console.log('✅ [CALL] answer signalData:', JSON.stringify({
+        type:      data.signalData?.type,
+        hasSdp:    !!data.signalData?.sdp,
+        sdpLength: data.signalData?.sdp?.length ?? 0,
+      }));
       stopRingtone();
-      setActiveCall(prev => prev ? { ...prev, signalData: data.signalData } : null);
+
+      // Establecer la respuesta SDP del receptor en nuestro PeerConnection
+      if (data.signalData?.type === 'answer' && data.signalData?.sdp) {
+        await setRemoteAnswer(data.signalData);
+        console.log('🔊 [CALL] RemoteAnswer establecido. El audio debería fluir ahora.');
+      } else {
+        console.error('❌ [CALL] handleAccepted: signalData inválido o faltante', data.signalData);
+        Alert.alert('Error de conexión', 'No se pudo establecer el canal de audio. Intenta de nuevo.');
+        return;
+      }
+
+      setActiveCall(prev =>
+        prev
+          ? { ...prev, fromId: data.answererId, signalData: data.signalData }
+          : null
+      );
       setIsOutgoing(false);
+
+      // Navegar a la pantalla de llamada activa (llamante)
+      try {
+        router.push({
+          pathname: '/call',
+          params: {
+            userId:  data.answererId,
+            name:    activeCallRef.current?.callerName ?? '',
+            photo:   activeCallRef.current?.callerPhoto ?? '',
+            isVideo: activeCallRef.current?.isVideo ? 'true' : 'false',
+            type:    'active',
+          },
+        });
+      } catch (e) {
+        console.warn('[CALL] Error navegando a /call en handleAccepted:', e);
+      }
     };
 
     const handleRejected = () => {
       console.log('❌ [CALL] Llamada rechazada');
       stopRingtone();
+      fullCleanup();
       setIncomingCall(null);
       setActiveCall(null);
       setIsOutgoing(false);
-      try {
-        if (router.canGoBack()) router.back();
-      } catch {}
+      try { if (router.canGoBack()) router.back(); } catch {}
     };
 
     const handleEnded = () => {
       console.log('📵 [CALL] Llamada terminada por el otro lado');
       stopRingtone();
+      fullCleanup();
       setIncomingCall(null);
       setActiveCall(null);
       setIsOutgoing(false);
-      try {
-        if (router.canGoBack()) router.back();
-      } catch {}
+      try { if (router.canGoBack()) router.back(); } catch {}
     };
 
     const handleUnavailable = ({ reason }: { paraId: string; reason: string }) => {
       console.warn('⚠️ [CALL] Receptor no disponible:', reason);
       stopRingtone();
+      fullCleanup();
       setActiveCall(null);
       setIsOutgoing(false);
-      try {
-        if (router.canGoBack()) router.back();
-      } catch {}
+      try { if (router.canGoBack()) router.back(); } catch {}
+      setTimeout(() => {
+        Alert.alert(
+          'No disponible',
+          'El usuario no está conectado en este momento. Intenta más tarde.',
+          [{ text: 'OK' }]
+        );
+      }, 300);
+    };
+
+    // Señales WebRTC: ICE candidates y renegociación
+    const handleSignal = async ({ signalData }: { fromId: string; signalData: any }) => {
+      if (!signalData) return;
+
+      if (signalData.type === 'ice' && signalData.candidate) {
+        console.log('🧊 [CALL] ICE candidate recibido del otro lado');
+        await addIceCandidate(signalData.candidate);
+      } else if (signalData.type === 'answer' && signalData.sdp) {
+        // Por si llega por call:signal en vez de call:accepted
+        console.log('📥 [CALL] Answer recibido por call:signal (fallback)');
+        await setRemoteAnswer(signalData);
+      }
     };
 
     socket.on('call:incoming',    handleIncoming);
@@ -242,6 +357,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socket.on('call:rejected',    handleRejected);
     socket.on('call:ended',       handleEnded);
     socket.on('call:unavailable', handleUnavailable);
+    socket.on('call:signal',      handleSignal);
 
     return () => {
       socket.off('call:incoming',    handleIncoming);
@@ -249,135 +365,257 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socket.off('call:rejected',    handleRejected);
       socket.off('call:ended',       handleEnded);
       socket.off('call:unavailable', handleUnavailable);
+      socket.off('call:signal',      handleSignal);
     };
-  }, [socket, playRingtone, stopRingtone]);
+  }, [socket, playRingtone, stopRingtone, setRemoteAnswer, addIceCandidate, fullCleanup]);
 
-  // ── Iniciar llamada saliente ───────────────────────────────────────────────
-  const initiateCall = useCallback((toId: string, name: string, photo: string | undefined, isVideo: boolean) => {
-    if (!socket) {
-      console.warn('⚠️ [CALL] Socket no conectado, no se puede llamar');
+  // ── Iniciar llamada saliente ───────────────────────────────────────────
+  const initiateCall = useCallback(async (
+    toId: string, name: string, photo: string | undefined, isVideo: boolean
+  ) => {
+    // Guard: verificar Expo Go primero
+    if (IS_EXPO_GO) {
+      Alert.alert(
+        'Función no disponible',
+        'Las llamadas no están disponibles en Expo Go.\n\n' +
+        'Para habilitar llamadas, ejecuta:\nnpx expo run:android',
+        [{ text: 'Entendido' }]
+      );
       return;
     }
 
-    if (!socket.connected) {
-      console.warn('⚠️ [CALL] Socket existe pero no está conectado, reintentando...');
+    // Guard: evitar doble llamada
+    if (initiatingRef.current) {
+      console.warn('⚠️ [CALL] initiateCall ya en progreso, ignorando');
+      return;
+    }
+    if (!socket?.connected) {
+      console.warn('⚠️ [CALL] Socket no conectado');
+      Alert.alert('Sin conexión', 'Verifica tu conexión a internet e intenta de nuevo.');
       return;
     }
 
+    // Solicitar permisos de micrófono/cámara antes de intentar la llamada
+    const permissionsOk = await requestMediaPermissions(isVideo);
+    if (!permissionsOk) {
+      console.warn('⚠️ [CALL] Permisos denegados, cancelando llamada');
+      return;
+    }
+
+    initiatingRef.current = true;
     console.log(`📞 [CALL] Iniciando llamada a ${name} (${toId}) | Video: ${isVideo}`);
 
-    const callData: CallInfo = {
-      fromId: toId,
-      callerName: name,
-      callerPhoto: photo,
-      isVideo,
-    };
-
+    const callData: CallInfo = { fromId: toId, callerName: name, callerPhoto: photo, isVideo };
     setActiveCall(callData);
+    activeCallRef.current = callData;
     setIsOutgoing(true);
     playRingtone();
 
-    // Emitir al servidor con nombre y foto para que el backend los reenvíe al receptor
-    socket.emit('call:request', {
-      paraId: toId,
-      isVideo,
-      signalData: { type: 'offer', sdp: null },
-      callerName: name,
-      callerPhoto: photo || null,
-    });
-
-    console.log('📡 [CALL] call:request emitido al servidor');
-
-    // Navegar a la pantalla de llamada
     try {
+      // Crear oferta SDP real con audio/video
+      const offer = await createOffer(toId, isVideo);
+
+      if (!offer?.sdp) {
+        throw new Error('La oferta SDP generada es inválida');
+      }
+
+      socket.emit('call:request', {
+        paraId:      toId,
+        isVideo,
+        signalData:  offer,          // SDP REAL
+        callerName:  name,
+        callerPhoto: photo || null,
+      });
+
+      console.log('📡 [CALL] call:request emitido con SDP real. type:', offer.type);
+
+      // Navegar a pantalla de "llamando..."
       router.push({
         pathname: '/call',
         params: {
-          userId: toId,
+          userId:  toId,
           name,
-          photo: photo || '',
+          photo:   photo || '',
           isVideo: isVideo ? 'true' : 'false',
-          type: 'outgoing',
+          type:    'outgoing',
         },
       });
-    } catch (e) {
-      console.warn('Error navegando a /call:', e);
-    }
-  }, [socket, playRingtone]);
+    } catch (e: any) {
+      const msg = e?.message ?? '';
+      console.error('❌ [CALL] Error creando oferta WebRTC:', msg);
+      stopRingtone();
+      fullCleanup();
+      setActiveCall(null);
+      setIsOutgoing(false);
+      initiatingRef.current = false;
 
-  // ── Aceptar llamada entrante ───────────────────────────────────────────────
-  const acceptCall = useCallback(() => {
+      // No mostrar alert si ya se manejó por permisos denegados
+      if (!msg.includes('Permisos de micrófono')) {
+        Alert.alert(
+          'Error de llamada',
+          'No se pudo iniciar la llamada. Verifica que tienes los permisos de micrófono habilitados.',
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+              text: 'Abrir Configuración',
+              onPress: () => Linking.openSettings(),
+            },
+          ]
+        );
+      }
+    }
+  }, [socket, playRingtone, stopRingtone, createOffer, fullCleanup]);
+
+  // ── Aceptar llamada entrante ───────────────────────────────────────────
+  const acceptCall = useCallback(async () => {
     if (!socket || !incomingCall) return;
 
-    // Detener timbre al aceptar
-    stopRingtone();
+    // Guard: verificar Expo Go
+    if (IS_EXPO_GO) {
+      Alert.alert(
+        'Función no disponible',
+        'Las llamadas no están disponibles en Expo Go.\n\n' +
+        'Para habilitar llamadas, ejecuta:\nnpx expo run:android',
+        [{ text: 'Entendido' }]
+      );
+      // Rechazar la llamada automáticamente
+      socket.emit('call:reject', { paraId: incomingCall.fromId });
+      setIncomingCall(null);
+      stopRingtone();
+      return;
+    }
 
+    // Guard: evitar doble aceptación (desde toast + desde CallScreen)
+    if (acceptingRef.current) {
+      console.warn('⚠️ [CALL] acceptCall ya en progreso, ignorando duplicado');
+      return;
+    }
+    acceptingRef.current = true;
+
+    // Validar que existe la oferta SDP del llamante
+    if (!incomingCall.signalData?.sdp || incomingCall.signalData?.type !== 'offer') {
+      console.error('❌ [CALL] acceptCall: signalData inválido', incomingCall.signalData);
+      Alert.alert('Error de conexión', 'Datos de la llamada incompletos. Intenta de nuevo.');
+      acceptingRef.current = false;
+      return;
+    }
+
+    // Solicitar permisos de micrófono/cámara antes de aceptar
+    const permissionsOk = await requestMediaPermissions(incomingCall.isVideo);
+    if (!permissionsOk) {
+      console.warn('⚠️ [CALL] Permisos denegados, rechazando llamada');
+      socket.emit('call:reject', { paraId: incomingCall.fromId });
+      setIncomingCall(null);
+      stopRingtone();
+      acceptingRef.current = false;
+      return;
+    }
+
+    stopRingtone();
     const call = { ...incomingCall };
     setActiveCall(call);
     setIncomingCall(null);
     setIsOutgoing(false);
 
-    socket.emit('call:accept', {
-      paraId: call.fromId,
-      signalData: { type: 'answer', sdp: null },
-    });
+    try {
+      // Crear respuesta SDP real a partir de la oferta recibida
+      console.log('📥 [CALL] Creando answer para la oferta de:', call.fromId);
+      const answer = await createAnswer(call.fromId, call.signalData, call.isVideo);
+
+      if (!answer?.sdp) {
+        throw new Error('El answer SDP generado es inválido');
+      }
+
+      socket.emit('call:accept', {
+        paraId:     call.fromId,
+        signalData: answer,          // SDP REAL
+      });
+
+      console.log('📥 [CALL] call:accept emitido con answer SDP. type:', answer.type);
+    } catch (e: any) {
+      const msg = e?.message ?? '';
+      console.error('❌ [CALL] Error creando respuesta WebRTC:', msg);
+      fullCleanup();
+      setActiveCall(null);
+      acceptingRef.current = false;
+
+      if (!msg.includes('Permisos de micrófono')) {
+        Alert.alert(
+          'Error de llamada',
+          'No se pudo acceder al micrófono/cámara. Verifica los permisos en Configuración.',
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+              text: 'Abrir Configuración',
+              onPress: () => Linking.openSettings(),
+            },
+          ]
+        );
+      }
+      return;
+    }
 
     try {
       router.push({
         pathname: '/call',
         params: {
-          userId: call.fromId,
-          name: call.callerName,
-          photo: call.callerPhoto || '',
+          userId:  call.fromId,
+          name:    call.callerName,
+          photo:   call.callerPhoto || '',
           isVideo: call.isVideo ? 'true' : 'false',
-          type: 'active',
+          type:    'active',
         },
       });
     } catch (e) {
-      console.warn('Error navegando a /call al aceptar:', e);
+      console.warn('[CALL] Error navegando a /call al aceptar:', e);
     }
-  }, [socket, incomingCall, stopRingtone]);
+  }, [socket, incomingCall, stopRingtone, createAnswer, fullCleanup]);
 
-  // ── Rechazar llamada ──────────────────────────────────────────────────────
+  // ── Rechazar llamada ──────────────────────────────────────────────────
   const rejectCall = useCallback(() => {
     if (!socket || !incomingCall) return;
-    // Detener timbre al rechazar
     stopRingtone();
+    fullCleanup();
     socket.emit('call:reject', { paraId: incomingCall.fromId });
     setIncomingCall(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  }, [socket, incomingCall, stopRingtone]);
+  }, [socket, incomingCall, stopRingtone, fullCleanup]);
 
-  // ── Terminar llamada ──────────────────────────────────────────────────────
+  // ── Terminar llamada ──────────────────────────────────────────────────
   const endCall = useCallback(() => {
     if (!socket) return;
-    // Detener timbre al colgar
     stopRingtone();
     const targetId = activeCall?.fromId || incomingCall?.fromId;
-    if (targetId) {
-      socket.emit('call:end', { paraId: targetId });
-    }
+    if (targetId) socket.emit('call:end', { paraId: targetId });
+    fullCleanup();
     setActiveCall(null);
     setIncomingCall(null);
     setIsOutgoing(false);
-    try {
-      if (router.canGoBack()) router.back();
-    } catch {}
-  }, [socket, activeCall, incomingCall, stopRingtone]);
+    try { if (router.canGoBack()) router.back(); } catch {}
+  }, [socket, activeCall, incomingCall, stopRingtone, fullCleanup]);
+
+  const value = useMemo(() => ({
+    incomingCall,
+    activeCall,
+    isOutgoing,
+    localStream,
+    remoteStream,
+    initiateCall,
+    acceptCall,
+    rejectCall,
+    endCall,
+    toggleMute:   rtcToggleMute,
+    toggleCamera: rtcToggleCamera,
+  }), [
+    incomingCall, activeCall, isOutgoing,
+    localStream, remoteStream,
+    initiateCall, acceptCall, rejectCall, endCall,
+    rtcToggleMute, rtcToggleCamera,
+  ]);
 
   return (
-    <CallContext.Provider value={{
-      incomingCall,
-      activeCall,
-      isOutgoing,
-      initiateCall,
-      acceptCall,
-      rejectCall,
-      endCall,
-    }}>
+    <CallContext.Provider value={value}>
       {children}
-
-      {/* Toast de llamada entrante — renderizado sobre todo */}
       {incomingCall && (
         <IncomingCallToast
           call={incomingCall}
@@ -390,12 +628,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 const s = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-start',
+  },
   toast: {
-    position: 'absolute',
-    top: 0,
-    left: 16,
-    right: 16,
-    zIndex: 99999,
+    marginTop: Platform.OS === 'ios' ? 54 : 36,
+    marginHorizontal: 16,
     borderRadius: 24,
     overflow: 'hidden',
     elevation: 20,

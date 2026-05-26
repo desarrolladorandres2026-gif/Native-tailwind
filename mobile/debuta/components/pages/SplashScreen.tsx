@@ -43,11 +43,17 @@ export default function SplashScreen() {
       try {
         const token = await AsyncStorage.getItem('access_token');
         const rulesAccepted = await AsyncStorage.getItem('debuta_rules_accepted');
+        const userRole = await AsyncStorage.getItem('user_role');
 
         if (!rulesAccepted) {
           router.replace('/rules');
         } else if (token) {
-          router.replace('/(tabs)');
+          // Redirigir según el rol del usuario
+          if (userRole === 'asociado') {
+            router.replace('/partner');
+          } else {
+            router.replace('/(tabs)');
+          }
         } else {
           router.replace('/onboarding');
         }

@@ -6,28 +6,38 @@
     "orientation": "portrait",
     "scheme": "debuta",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Debuta necesita acceso a la cámara para las videollamadas",
+        "NSMicrophoneUsageDescription": "Debuta necesita acceso al micrófono para las llamadas de voz y video"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.CAMERA",
         "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
-      ]
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.CHANGE_NETWORK_STATE",
+        "android.permission.ACCESS_WIFI_STATE"
+      ],
+      "package": "com.andressofia.debuta"
     },
     "web": {
       "output": "static"
     },
     "plugins": [
       "expo-router",
+      "expo-dev-client",
       [
         "expo-splash-screen",
         {
@@ -45,7 +55,8 @@
       "expo-secure-store",
       "expo-web-browser",
       "@react-native-community/datetimepicker",
-      "expo-audio"
+      "expo-audio",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true

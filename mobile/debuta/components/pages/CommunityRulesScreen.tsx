@@ -17,23 +17,9 @@ import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import FloatingHearts from '../ui/FloatingHearts';
+import { useTheme } from '../../theme/ThemeContext';
 
 const { width: W, height: H } = Dimensions.get('window');
-
-const COLORS = {
-  background: '#FFFFFF',
-  gradientMain: ['#FF5864', '#FF655B', '#FD297B'] as const,
-  primary: '#FD297B',
-  secondary: '#FF655B',
-  accentPink: 'rgba(253,41,123,0.1)',
-  accentBlue: 'rgba(255,88,100,0.1)',
-  text: '#1A1A1A',
-  textSoft: '#666666',
-  white: '#FFFFFF',
-  glass: 'rgba(255, 255, 255, 0.85)',
-  glassBorder: 'rgba(255, 255, 255, 0.5)',
-  shadow: 'rgba(253, 41, 123, 0.2)',
-};
 
 const RULES = [
   {
@@ -69,6 +55,7 @@ const RULES = [
 ];
 
 export default function CommunityRulesScreen() {
+  const { colors, isDark } = useTheme();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
@@ -123,17 +110,17 @@ export default function CommunityRulesScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <View style={[styles.container, { backgroundColor: colors.bg[0] }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       
       {/* Background Blobs */}
       <View style={StyleSheet.absoluteFillObject}>
         <LinearGradient
-          colors={[COLORS.accentPink, 'transparent']}
+          colors={[`${colors.primary}15`, 'transparent']}
           style={[styles.bgBlob, { top: -W * 0.2, left: -W * 0.1 }]}
         />
         <LinearGradient
-          colors={[COLORS.accentBlue, 'transparent']}
+          colors={[`${colors.secondary}15`, 'transparent']}
           style={[styles.bgBlob, { bottom: -W * 0.2, right: -W * 0.1 }]}
         />
       </View>
@@ -147,16 +134,16 @@ export default function CommunityRulesScreen() {
         <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
           {/* Header */}
           <View style={styles.header}>
-            <View style={styles.iconCircle}>
+            <View style={[styles.iconCircle, { backgroundColor: colors.card, shadowColor: colors.primary }]}>
               <LinearGradient
-                colors={COLORS.gradientMain}
+                colors={[colors.primary, colors.secondary]}
                 style={styles.headerIconGrad}
               >
-                <Ionicons name="shield-half" size={40} color={COLORS.white} />
+                <Ionicons name="shield-half" size={40} color="white" />
               </LinearGradient>
             </View>
-            <Text style={styles.title}>Límites de la Comunidad</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.title, { color: colors.text }]}>Límites de la Comunidad</Text>
+            <Text style={[styles.subtitle, { color: colors.textDim }]}>
               Bienvenido a Debuta. Para asegurar una experiencia segura y agradable para todos, por favor acepta nuestras normas básicas.
             </Text>
           </View>
@@ -164,14 +151,14 @@ export default function CommunityRulesScreen() {
           {/* Rules List */}
           <View style={styles.rulesContainer}>
             {RULES.map((rule, index) => (
-              <RuleItem key={rule.id} rule={rule} index={index} />
+              <RuleItem key={rule.id} rule={rule} index={index} colors={colors} />
             ))}
           </View>
 
           {/* Footer Info */}
           <View style={styles.footerNote}>
-            <Ionicons name="information-circle-outline" size={16} color={COLORS.textSoft} />
-            <Text style={styles.footerNoteText}>
+            <Ionicons name="information-circle-outline" size={16} color={colors.textLight} />
+            <Text style={[styles.footerNoteText, { color: colors.textLight }]}>
               Al continuar, aceptas nuestras Reglas y Términos de Servicio.
             </Text>
           </View>
@@ -179,20 +166,20 @@ export default function CommunityRulesScreen() {
       </ScrollView>
 
       {/* Action Buttons */}
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { backgroundColor: colors.bg[0], borderTopColor: colors.glassBorder }]}>
         <TouchableOpacity 
           onPress={handleAccept}
           activeOpacity={0.8}
           style={styles.acceptBtn}
         >
           <LinearGradient
-            colors={COLORS.gradientMain}
+            colors={[colors.primary, colors.secondary]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.acceptBtnGrad}
           >
             <Text style={styles.acceptBtnText}>Entiendo y Acepto</Text>
-            <Ionicons name="arrow-forward" size={20} color={COLORS.white} style={{ marginLeft: 8 }} />
+            <Ionicons name="arrow-forward" size={20} color="white" style={{ marginLeft: 8 }} />
           </LinearGradient>
         </TouchableOpacity>
 
@@ -201,22 +188,22 @@ export default function CommunityRulesScreen() {
           activeOpacity={0.6}
           style={styles.declineBtn}
         >
-          <Text style={styles.declineBtnText}>No acepto</Text>
+          <Text style={[styles.declineBtnText, { color: colors.textDim }]}>No acepto</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-function RuleItem({ rule, index }: { rule: typeof RULES[0], index: number }) {
+function RuleItem({ rule, index, colors }: { rule: typeof RULES[0], index: number, colors: any }) {
   return (
-    <View style={styles.ruleItem}>
-      <View style={styles.ruleIconContainer}>
-        <Ionicons name={rule.icon as any} size={24} color={COLORS.primary} />
+    <View style={[styles.ruleItem, { backgroundColor: colors.card, borderColor: colors.glassBorder }]}>
+      <View style={[styles.ruleIconContainer, { backgroundColor: `${colors.primary}15` }]}>
+        <Ionicons name={rule.icon as any} size={24} color={colors.primary} />
       </View>
       <View style={styles.ruleTextContainer}>
-        <Text style={styles.ruleTitle}>{rule.title}</Text>
-        <Text style={styles.ruleDesc}>{rule.desc}</Text>
+        <Text style={[styles.ruleTitle, { color: colors.text }]}>{rule.title}</Text>
+        <Text style={[styles.ruleDesc, { color: colors.textDim }]}>{rule.desc}</Text>
       </View>
     </View>
   );
@@ -225,7 +212,6 @@ function RuleItem({ rule, index }: { rule: typeof RULES[0], index: number }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
   bgBlob: {
     position: 'absolute',
@@ -246,9 +232,7 @@ const styles = StyleSheet.create({
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: COLORS.white,
     padding: 4,
-    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.2,
     shadowRadius: 15,
@@ -264,13 +248,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '900',
-    color: COLORS.text,
     textAlign: 'center',
     marginBottom: 12,
   },
   subtitle: {
     fontSize: 15,
-    color: COLORS.textSoft,
     textAlign: 'center',
     lineHeight: 22,
     paddingHorizontal: 10,
@@ -280,11 +262,9 @@ const styles = StyleSheet.create({
   },
   ruleItem: {
     flexDirection: 'row',
-    backgroundColor: COLORS.glass,
     padding: 16,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: COLORS.glassBorder,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -295,7 +275,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: 'rgba(253, 41, 123, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -306,12 +285,10 @@ const styles = StyleSheet.create({
   ruleTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.text,
     marginBottom: 4,
   },
   ruleDesc: {
     fontSize: 14,
-    color: COLORS.textSoft,
     lineHeight: 20,
   },
   footerNote: {
@@ -323,7 +300,6 @@ const styles = StyleSheet.create({
   },
   footerNoteText: {
     fontSize: 12,
-    color: COLORS.textSoft,
     fontStyle: 'italic',
   },
   bottomBar: {
@@ -334,15 +310,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     paddingTop: 20,
-    backgroundColor: COLORS.background,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
     gap: 12,
   },
   acceptBtn: {
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -355,7 +328,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
   },
   acceptBtnText: {
-    color: COLORS.white,
+    color: 'white',
     fontSize: 18,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -366,7 +339,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   declineBtnText: {
-    color: COLORS.textSoft,
     fontSize: 15,
     fontWeight: '600',
     textDecorationLine: 'underline',

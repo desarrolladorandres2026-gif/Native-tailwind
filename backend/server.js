@@ -1,4 +1,6 @@
 require('dotenv').config();
+const dns       = require('dns');
+dns.setServers(['8.8.8.8', '8.8.4.4']); // Google DNS – el router local no resuelve SRV
 const http      = require('http');
 const app       = require('./src/app');
 const mongoose  = require('mongoose');

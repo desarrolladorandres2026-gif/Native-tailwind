@@ -21,10 +21,13 @@ const matchSchema = new mongoose.Schema(
 
     // Recomendación de cita
     recomendacion: {
+      restauranteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurante' },
       asociadoId: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario' },
       estado: { type: String, enum: ['pendiente', 'aceptada', 'rechazada'], default: 'pendiente' },
       user1Acepta: { type: Boolean, default: false },
       user2Acepta: { type: Boolean, default: false },
+      fechaSugerida: { type: String, default: '' },
+      sugeridaEn: { type: Date, default: null },
     },
 
     // true cuando ambos se dieron like

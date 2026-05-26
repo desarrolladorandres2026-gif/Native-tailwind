@@ -3,35 +3,39 @@ import { api } from '../components/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface Settings {
-  max_distance:    number;
-  min_age:         number;
-  max_age:         number;
-  show_me:         'M' | 'F' | 'ALL';
-  verified_only:   boolean;
-  has_bio_only:    boolean;
-  min_photos:      number;
-  notif_matches:   boolean;
-  notif_messages:  boolean;
-  notif_recomend:  boolean;
-  show_distance:   boolean;
-  show_age:        boolean;
-  profile_visible: boolean;
+  max_distance:     number;
+  min_age:          number;
+  max_age:          number;
+  show_me:          'M' | 'F' | 'ALL';
+  verified_only:    boolean;
+  has_bio_only:     boolean;
+  min_photos:       number;
+  looking_for:      'amistad' | 'citas' | 'serio' | 'casual' | 'no_lo_se' | 'ALL';
+  interests_filter: string[];
+  notif_matches:    boolean;
+  notif_messages:   boolean;
+  notif_recomend:   boolean;
+  show_distance:    boolean;
+  show_age:         boolean;
+  profile_visible:  boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
-  max_distance:    50,
-  min_age:         18,
-  max_age:         40,
-  show_me:         'ALL',
-  verified_only:   false,
-  has_bio_only:    false,
-  min_photos:      0,
-  notif_matches:   true,
-  notif_messages:  true,
-  notif_recomend:  false,
-  show_distance:   true,
-  show_age:        true,
-  profile_visible: true,
+  max_distance:     50,
+  min_age:          18,
+  max_age:          40,
+  show_me:          'ALL',
+  verified_only:    false,
+  has_bio_only:     false,
+  min_photos:       0,
+  looking_for:      'ALL',
+  interests_filter: [],
+  notif_matches:    true,
+  notif_messages:   true,
+  notif_recomend:   false,
+  show_distance:    true,
+  show_age:         true,
+  profile_visible:  true,
 };
 
 export function useSettings() {

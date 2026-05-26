@@ -15,12 +15,14 @@ import { useAuth } from '../hooks/useAuth';
 import FloatingHearts from '../components/ui/FloatingHearts';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../theme/ThemeContext';
+import { useSocket } from '../context/SocketContext';
 
 const { width: W } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
+  const { reconnect } = useSocket();
   const { login, loginWithGoogle, loginWithFacebook, loading, error, clearError } = useAuth();
 
   const [correo, setCorreo] = useState('');
@@ -52,13 +54,17 @@ export default function LoginScreen() {
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await login({ correo: correo.trim().toLowerCase(), password }, async () => {
+    await login({ correo: correo.trim().toLowerCase(), password }, async (user) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Reconectar socket ahora que el token ya está guardado en AsyncStorage
+      await reconnect();
       const rulesAccepted = await AsyncStorage.getItem('debuta_rules_accepted');
-      if (rulesAccepted) {
-        router.replace('/(tabs)');
-      } else {
+      if (!rulesAccepted) {
         router.replace('/rules');
+      } else if (user.rol === 'asociado') {
+        router.replace('/partner');
+      } else {
+        router.replace('/(tabs)');
       }
     });
   };
@@ -68,18 +74,22 @@ export default function LoginScreen() {
     const method = type === 'google' ? loginWithGoogle : loginWithFacebook;
     await method(async (_user) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Reconectar socket con el token recién guardado
+      await reconnect();
       const rulesAccepted = await AsyncStorage.getItem('debuta_rules_accepted');
-      if (rulesAccepted) {
-        router.replace('/(tabs)');
-      } else {
+      if (!rulesAccepted) {
         router.replace('/rules');
+      } else if (_user.rol === 'asociado') {
+        router.replace('/partner');
+      } else {
+        router.replace('/(tabs)');
       }
     });
   };
 
   return (
     <View style={[s.root, { backgroundColor: colors.bg[0] }]}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       
       {/* Fondo Premium */}
       <View style={StyleSheet.absoluteFillObject}>
@@ -107,8 +117,8 @@ export default function LoginScreen() {
                     <Ionicons name="heart" size={42} color={colors.primary} />
                   </View>
                 </View>
-                <Text style={[s.title, { color: '#FFFFFF' }]}>Debuta</Text>
-                <Text style={[s.subtitle, { color: 'rgba(255,255,255,0.8)' }]}>Tu próxima conexión te espera</Text>
+                <Text style={[s.title, { color: colors.text }]}>Debuta</Text>
+                <Text style={[s.subtitle, { color: colors.textDim }]}>Tu próxima conexión te espera</Text>
               </View>
 
               <View style={[s.glassCard, { backgroundColor: colors.card, borderColor: colors.glassBorder }]}>
@@ -199,9 +209,9 @@ export default function LoginScreen() {
 
               {!isKeyboardVisible && (
                 <View style={s.footer}>
-                  <Text style={[s.footerText, { color: '#FFFFFF' }]}>¿No tienes cuenta? </Text>
+                  <Text style={[s.footerText, { color: colors.textDim }]}>¿No tienes cuenta? </Text>
                   <TouchableOpacity onPress={() => { clearError(); router.push('/register'); }}>
-                    <Text style={[s.registerText, { color: '#FFFFFF' }]}>Regístrate gratis</Text>
+                    <Text style={[s.registerText, { color: colors.primary }]}>Regístrate gratis</Text>
                   </TouchableOpacity>
                 </View>
               )}

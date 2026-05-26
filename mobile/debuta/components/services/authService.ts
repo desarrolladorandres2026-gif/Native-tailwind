@@ -66,6 +66,7 @@ const storeToken = async (response: LoginResponse): Promise<void> => {
   if (response.usuario?.id) {
     await AsyncStorage.setItem('user_id', response.usuario.id);
     await AsyncStorage.setItem('user_name', response.usuario.first_name || response.usuario.username);
+    await AsyncStorage.setItem('user_role', response.usuario.rol || 'user');
     if (response.usuario.profile_picture?.url) {
       await AsyncStorage.setItem('user_photo', response.usuario.profile_picture.url);
     }
@@ -143,7 +144,7 @@ export const authService = {
   },
 
   async logout(): Promise<void> {
-    await AsyncStorage.multiRemove(['access_token', 'user_id', 'usuario']);
+    await AsyncStorage.multiRemove(['access_token', 'user_id', 'usuario', 'user_role', 'user_name', 'user_photo']);
   },
 
   async isAuthenticated(): Promise<boolean> {

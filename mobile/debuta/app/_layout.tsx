@@ -10,6 +10,7 @@ SplashScreenSDK.preventAutoHideAsync();
 
 import { SocketProvider } from '../context/SocketContext';
 import { CallProvider } from '../context/CallContext';
+import { NotificationProvider } from '../context/NotificationContext';
 
 export default function RootLayout() {
   const hidden = useRef(false);
@@ -26,28 +27,31 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <SocketProvider>
-        <CallProvider>
-          <AlertProvider>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="login" options={{ headerShown: false }} />
-              <Stack.Screen name="register" options={{ headerShown: false }} />
-              <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-              <Stack.Screen name="rules" options={{ headerShown: false }} />
-              <Stack.Screen name="terms" options={{ headerShown: false }} />
-              <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
-              <Stack.Screen name="verify-code" options={{ headerShown: false }} />
-              <Stack.Screen name="reset-password" options={{ headerShown: false }} />
-              <Stack.Screen name="call" options={{ 
-                headerShown: false,
-                presentation: 'fullScreenModal',
-                animation: 'fade'
-              }} />
-            </Stack>
-            <StatusBar style="auto" />
-          </AlertProvider>
-        </CallProvider>
+        <NotificationProvider>
+          <CallProvider>
+            <AlertProvider>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="login" options={{ headerShown: false }} />
+                <Stack.Screen name="register" options={{ headerShown: false }} />
+                <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+                <Stack.Screen name="rules" options={{ headerShown: false }} />
+                <Stack.Screen name="terms" options={{ headerShown: false }} />
+                <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+                <Stack.Screen name="verify-code" options={{ headerShown: false }} />
+                <Stack.Screen name="reset-password" options={{ headerShown: false }} />
+                <Stack.Screen name="call" options={{ 
+                  headerShown: false,
+                  presentation: 'fullScreenModal',
+                  animation: 'fade'
+                }} />
+                <Stack.Screen name="partner" options={{ headerShown: false }} />
+              </Stack>
+              <StatusBar style="auto" />
+            </AlertProvider>
+          </CallProvider>
+        </NotificationProvider>
       </SocketProvider>
     </ThemeProvider>
   );

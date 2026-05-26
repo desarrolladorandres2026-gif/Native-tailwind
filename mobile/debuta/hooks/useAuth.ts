@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
@@ -35,8 +35,12 @@ export function useAuth() {
     path: 'auth'
   });
 
-  console.log('🔑 Google Redirect URI:', googleRedirectUri);
-  console.log('📱 Expo Go mode:', isExpoGo);
+  useEffect(() => {
+    console.log('🔑 Google Redirect URI:', googleRedirectUri);
+    console.log('📱 Expo Go mode:', isExpoGo);
+  // Solo logear una vez al montar
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [googleRequest, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
     clientId:    GOOGLE_CLIENT_ID,   // Web Client ID de Google Console

@@ -13,42 +13,43 @@ import { getAge, relativeTime } from '../utils/age';
 import ReportModal from '../report/ReportModal';
 import UserProfileModal from '../discover/UserProfileModal';
 import { UserProfile } from '../types';
+import { useTheme } from '../../theme/ThemeContext';
 
 const { width: W } = Dimensions.get('window');
 
 function LikeCard({
-  usuario, liked_at, onLikeBack, onReport, isLiking, onPress
+  usuario, liked_at, onLikeBack, onReport, isLiking, onPress, colors
 }: {
-  usuario: UserProfile; liked_at: string; onLikeBack: () => void; onReport: () => void; isLiking: boolean; onPress: () => void;
+  usuario: UserProfile; liked_at: string; onLikeBack: () => void; onReport: () => void; isLiking: boolean; onPress: () => void; colors: any;
 }) {
   const age  = getAge(usuario.birth_date);
   const time = relativeTime(liked_at);
 
   return (
-    <TouchableOpacity style={s.card} activeOpacity={0.8} onPress={onPress}>
+    <TouchableOpacity style={[s.card, { backgroundColor: colors.card, borderColor: colors.glassBorder }]} activeOpacity={0.8} onPress={onPress}>
       <View style={s.avatarWrap}>
         {usuario.profile_picture ? (
           <Image source={{ uri: typeof usuario.profile_picture === 'object' && usuario.profile_picture !== null ? usuario.profile_picture.url : usuario.profile_picture }} style={s.avatar} />
         ) : (
-          <View style={[s.avatar, { backgroundColor: '#F2F2F7', alignItems: 'center', justifyContent: 'center' }]}>
-            <Ionicons name="person" size={32} color="#8E8E93" />
+          <View style={[s.avatar, { backgroundColor: colors.bg[0], alignItems: 'center', justifyContent: 'center' }]}>
+            <Ionicons name="person" size={32} color={colors.textLight} />
           </View>
         )}
-        <View style={s.heartBadge}>
+        <View style={[s.heartBadge, { backgroundColor: colors.primary, borderColor: colors.card }]}>
           <Ionicons name="heart" size={14} color="#fff" />
         </View>
       </View>
 
       <View style={s.info}>
-        <Text style={s.name}>
+        <Text style={[s.name, { color: colors.text }]}>
           {usuario.first_name || usuario.username}{age ? `, ${age}` : ''}
-          {usuario.is_verified && <Ionicons name="checkmark-circle" size={16} color="#007AFF" />}
+          {usuario.is_verified && <Ionicons name="checkmark-circle" size={16} color={colors.tertiary} />}
         </Text>
-        <Text style={s.timeText}>Te dio like hace {time}</Text>
+        <Text style={[s.timeText, { color: colors.primary }]}>Te dio like hace {time}</Text>
       </View>
 
       <View style={s.actions}>
-        <TouchableOpacity style={s.likeBtn} onPress={onLikeBack} disabled={isLiking}>
+        <TouchableOpacity style={[s.likeBtn, { backgroundColor: colors.primary }]} onPress={onLikeBack} disabled={isLiking}>
           {isLiking ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="heart" size={24} color="#fff" />}
         </TouchableOpacity>
       </View>
@@ -57,6 +58,7 @@ function LikeCard({
 }
 
 export default function LikesScreen() {
+  const { colors, isDark } = useTheme();
   const { likes, loading, refetch } = useLikes();
   const [reportTarget, setReportTarget] = useState<UserProfile | null>(null);
   const [previewProfile, setPreviewProfile] = useState<UserProfile | null>(null);
@@ -88,7 +90,6 @@ export default function LikesScreen() {
 
   const handlePass = async (usuario: UserProfile) => {
     try {
-      // Usamos el mismo endpoint que en Discover si es posible, o uno específico para "descartar" likes
       await api.post(`/matches/dislike/${usuario.id}`, {});
       await refetch();
     } catch (e) {
@@ -100,19 +101,19 @@ export default function LikesScreen() {
 
   if (loading && likes.length === 0) {
     return (
-      <View style={s.center}>
-        <ActivityIndicator size="large" color="#FF2D55" />
+      <View style={[s.center, { backgroundColor: colors.bg[0] }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={[s.safe, { backgroundColor: colors.bg[0] }]} edges={['top']}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <View style={s.header}>
         <View>
-          <Text style={s.logo}>Debuta</Text>
-          <Text style={s.subtitle}>Te gustaron</Text>
+          <Text style={[s.logo, { color: colors.primary }]}>Debuta</Text>
+          <Text style={[s.subtitle, { color: colors.text }]}>Te gustaron</Text>
         </View>
       </View>
 
@@ -125,10 +126,10 @@ export default function LikesScreen() {
         ListEmptyComponent={
           !loading ? (
             <View style={s.emptyWrap}>
-              <Ionicons name="heart-outline" size={80} color="#F2F2F7" />
-              <Text style={s.emptyTitle}>Aún sin likes</Text>
-              <Text style={s.emptySub}>Cuando alguien te dé like aparecerá aquí.</Text>
-              <TouchableOpacity style={s.discoverBtn} onPress={() => router.push('/(tabs)/')}>
+              <Ionicons name="heart-outline" size={80} color={colors.glassBorder} />
+              <Text style={[s.emptyTitle, { color: colors.text }]}>Aún sin likes</Text>
+              <Text style={[s.emptySub, { color: colors.textDim }]}>Cuando alguien te dé like aparecerá aquí.</Text>
+              <TouchableOpacity style={[s.discoverBtn, { backgroundColor: colors.primary }]} onPress={() => router.push('/(tabs)/')}>
                 <Text style={s.discoverBtnText}>Explorar perfiles</Text>
               </TouchableOpacity>
             </View>
@@ -142,6 +143,7 @@ export default function LikesScreen() {
             onLikeBack={() => handleLikeBack(item.usuario)}
             onReport={() => setReportTarget(item.usuario)}
             onPress={() => setPreviewProfile(item.usuario)}
+            colors={colors}
           />
         )}
       />
@@ -168,11 +170,11 @@ export default function LikesScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FFFFFF' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  safe: { flex: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   header: { paddingHorizontal: 24, paddingVertical: 15 },
-  logo: { fontSize: 28, fontWeight: '900', letterSpacing: 1, color: '#FF2D55' },
-  subtitle: { fontSize: 16, fontWeight: '700', color: '#000' },
+  logo: { fontSize: 28, fontWeight: '900', letterSpacing: 1 },
+  subtitle: { fontSize: 16, fontWeight: '700' },
   card: { 
     flexDirection: 'row', 
     alignItems: 'center', 
@@ -180,9 +182,7 @@ const s = StyleSheet.create({
     marginVertical: 8, 
     borderRadius: 24, 
     padding: 15, 
-    backgroundColor: '#FFFFFF',
     borderWidth: 1, 
-    borderColor: '#F2F2F7',
     shadowColor: '#000', 
     shadowOffset: { width: 0, height: 5 }, 
     shadowOpacity: 0.05, 
@@ -198,21 +198,18 @@ const s = StyleSheet.create({
     width: 26, 
     height: 26, 
     borderRadius: 13, 
-    backgroundColor: '#FF2D55',
     alignItems: 'center', 
     justifyContent: 'center', 
     borderWidth: 2,
-    borderColor: '#FFFFFF'
   },
   info: { flex: 1 },
-  name: { fontSize: 18, fontWeight: '800', marginBottom: 4, color: '#000' },
-  timeText: { fontSize: 13, fontWeight: '700', color: '#FF2D55' },
+  name: { fontSize: 18, fontWeight: '800', marginBottom: 4 },
+  timeText: { fontSize: 13, fontWeight: '700' },
   actions: { marginLeft: 10 },
   likeBtn: { 
     width: 54, 
     height: 54, 
     borderRadius: 27, 
-    backgroundColor: '#FF2D55',
     alignItems: 'center', 
     justifyContent: 'center', 
     shadowColor: '#000', 
@@ -222,8 +219,8 @@ const s = StyleSheet.create({
     elevation: 8 
   },
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 100, paddingHorizontal: 40 },
-  emptyTitle: { fontSize: 22, fontWeight: '800', marginTop: 20, color: '#000' },
-  emptySub: { fontSize: 16, textAlign: 'center', marginTop: 10, fontWeight: '500', color: '#8E8E93' },
-  discoverBtn: { marginTop: 25, paddingHorizontal: 30, paddingVertical: 15, borderRadius: 20, backgroundColor: '#FF2D55' },
+  emptyTitle: { fontSize: 22, fontWeight: '800', marginTop: 20 },
+  emptySub: { fontSize: 16, textAlign: 'center', marginTop: 10, fontWeight: '500' },
+  discoverBtn: { marginTop: 25, paddingHorizontal: 30, paddingVertical: 15, borderRadius: 20 },
   discoverBtnText: { color: 'white', fontWeight: '800', fontSize: 16 },
 });

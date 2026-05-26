@@ -1,10 +1,10 @@
-// ChatScreen.tsx — Rediseño premium, no messenger
+// ChatScreen.tsx — Rediseño premium con sugerencia de primera cita
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, Image, ActivityIndicator,
   KeyboardAvoidingView, Platform, StatusBar,
-  Keyboard, Pressable,
+  Keyboard, Pressable, Animated, Dimensions, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,13 +12,252 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import { useChat } from '../../hooks/useChat';
+import { useChat, DateSuggestion } from '../../hooks/useChat';
 import { usePresence } from '../../hooks/usePresence';
 import { useCall } from '../../context/CallContext';
 import { lastSeenText } from '../utils/age';
 import { useTheme } from '../../theme/ThemeContext';
 
+const { width: W } = Dimensions.get('window');
 const EMOJIS = ['😀','😂','🥰','😎','😭','👍','❤️','🔥','✨','💯','🎉','💬'];
+
+// ── Tarjeta de Sugerencia de Primera Cita ──────────────────────────────────────
+function DateSuggestionCard({
+  suggestion, myId, onAccept, onNewPlace, dateLoading, colors, isDark,
+}: {
+  suggestion: DateSuggestion;
+  myId: string | null;
+  onAccept: () => void;
+  onNewPlace: () => void;
+  dateLoading: boolean;
+  colors: any;
+  isDark: boolean;
+}) {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(40)).current;
+  const [photoIndex, setPhotoIndex] = useState(0);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, tension: 40, friction: 8, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  const { restaurante, sugerencia, recomendacion } = suggestion;
+
+  // Determinar estado de aceptación
+  const allPhotos = [
+    ...(restaurante.foto_portada ? [restaurante.foto_portada] : []),
+    ...(restaurante.fotos || []),
+  ];
+  const currentPhoto = allPhotos[photoIndex]?.url;
+
+  const isAccepted = recomendacion.estado === 'aceptada';
+  const iAccepted = recomendacion.user1Acepta || recomendacion.user2Acepta; // simplified
+
+  return (
+    <Animated.View style={[
+      s.dateCardWrap,
+      { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+    ]}>
+      <LinearGradient
+        colors={isDark
+          ? ['rgba(139,92,246,0.12)', 'rgba(253,41,123,0.08)', 'rgba(13,13,26,0.95)']
+          : ['rgba(253,41,123,0.06)', 'rgba(139,92,246,0.04)', 'rgba(255,255,255,0.95)']
+        }
+        style={[s.dateCard, { borderColor: isDark ? 'rgba(139,92,246,0.25)' : 'rgba(253,41,123,0.15)' }]}
+      >
+        {/* ── Sparkle Header ─────────────────────────────────────────── */}
+        <View style={s.dateHeader}>
+          <Text style={s.dateSparkle}>✨</Text>
+          <Text style={[s.dateHeaderText, { color: colors.text }]}>
+            ¡Sugerencia de Primera Cita!
+          </Text>
+          <Text style={s.dateSparkle}>✨</Text>
+        </View>
+
+        {/* ── Mensaje personalizado ───────────────────────────────────── */}
+        {sugerencia.mensaje && (
+          <View style={[s.dateMsgBox, { backgroundColor: isDark ? 'rgba(253,41,123,0.1)' : 'rgba(253,41,123,0.06)' }]}>
+            <Text style={[s.dateMsgText, { color: colors.primary }]}>
+              {sugerencia.mensaje}
+            </Text>
+          </View>
+        )}
+
+        {/* ── Foto del restaurante ───────────────────────────────────── */}
+        {allPhotos.length > 0 && (
+          <View style={s.datePhotoWrap}>
+            {currentPhoto && (
+              <Image source={{ uri: currentPhoto }} style={s.datePhoto} resizeMode="cover" />
+            )}
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.6)']}
+              style={s.datePhotoOverlay}
+            />
+            {allPhotos.length > 1 && (
+              <View style={s.datePhotoNav}>
+                {allPhotos.map((_, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={[s.datePhotoDot, i === photoIndex && s.datePhotoDotActive]}
+                    onPress={() => setPhotoIndex(i)}
+                  />
+                ))}
+              </View>
+            )}
+            {/* Swipe arrows */}
+            {photoIndex > 0 && (
+              <TouchableOpacity style={[s.datePhotoArrow, s.datePhotoArrowLeft]} onPress={() => setPhotoIndex(photoIndex - 1)}>
+                <Ionicons name="chevron-back" size={20} color="#fff" />
+              </TouchableOpacity>
+            )}
+            {photoIndex < allPhotos.length - 1 && (
+              <TouchableOpacity style={[s.datePhotoArrow, s.datePhotoArrowRight]} onPress={() => setPhotoIndex(photoIndex + 1)}>
+                <Ionicons name="chevron-forward" size={20} color="#fff" />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* ── Info del restaurante ────────────────────────────────────── */}
+        <View style={s.dateInfo}>
+          <Text style={[s.dateRestName, { color: colors.text }]}>
+            {restaurante.nombre || 'Restaurante'}
+          </Text>
+
+          <View style={s.dateTagsRow}>
+            {restaurante.categoria ? (
+              <View style={[s.dateTag, { backgroundColor: colors.primary + '15' }]}>
+                <Ionicons name="pricetag" size={11} color={colors.primary} />
+                <Text style={[s.dateTagText, { color: colors.primary }]}>{restaurante.categoria}</Text>
+              </View>
+            ) : null}
+            {restaurante.ambiente ? (
+              <View style={[s.dateTag, { backgroundColor: colors.secondary + '15' }]}>
+                <Ionicons name="sparkles" size={11} color={colors.secondary} />
+                <Text style={[s.dateTagText, { color: colors.secondary }]}>{restaurante.ambiente}</Text>
+              </View>
+            ) : null}
+            {restaurante.precio_promedio ? (
+              <View style={[s.dateTag, { backgroundColor: '#10B98115' }]}>
+                <Text style={[s.dateTagText, { color: '#10B981' }]}>{restaurante.precio_promedio}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          {restaurante.direccion ? (
+            <View style={s.dateDetailRow}>
+              <Ionicons name="location" size={14} color={colors.textDim} />
+              <Text style={[s.dateDetailText, { color: colors.textDim }]} numberOfLines={1}>
+                {restaurante.direccion}
+              </Text>
+            </View>
+          ) : null}
+
+          {restaurante.horario ? (
+            <View style={s.dateDetailRow}>
+              <Ionicons name="time" size={14} color={colors.textDim} />
+              <Text style={[s.dateDetailText, { color: colors.textDim }]}>
+                {restaurante.horario}
+              </Text>
+            </View>
+          ) : null}
+
+          {/* ── Fecha sugerida ────────────────────────────────────── */}
+          <View style={[s.dateSuggestionBox, {
+            backgroundColor: isDark ? 'rgba(139,92,246,0.12)' : 'rgba(139,92,246,0.06)',
+            borderColor: isDark ? 'rgba(139,92,246,0.3)' : 'rgba(139,92,246,0.15)',
+          }]}>
+            <Ionicons name="calendar" size={18} color={colors.secondary} />
+            <Text style={[s.dateSuggestionText, { color: colors.text }]}>
+              {sugerencia.fecha || 'Sábado 8:00 PM'}
+            </Text>
+          </View>
+
+          {/* ── Menú preview ──────────────────────────────────────── */}
+          {restaurante.menu && restaurante.menu.length > 0 && (
+            <View style={s.dateMenuSection}>
+              <Text style={[s.dateMenuTitle, { color: colors.textDim }]}>🍽️ Menú destacado</Text>
+              {restaurante.menu.map((plato, i) => (
+                <View key={i} style={s.dateMenuItem}>
+                  <Text style={[s.dateMenuName, { color: colors.text }]}>{plato.nombre}</Text>
+                  {plato.precio ? (
+                    <Text style={[s.dateMenuPrice, { color: colors.primary }]}>{plato.precio}</Text>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* ── Estado de aceptación ────────────────────────────────── */}
+        {isAccepted ? (
+          <View style={[s.dateAcceptedBox, { backgroundColor: '#10B98115' }]}>
+            <Ionicons name="checkmark-circle" size={22} color="#10B981" />
+            <Text style={[s.dateAcceptedText, { color: '#10B981' }]}>
+              ¡Cita confirmada! 🎉 Ambos aceptaron
+            </Text>
+          </View>
+        ) : (
+          <>
+            {/* Status indicators */}
+            {(recomendacion.user1Acepta || recomendacion.user2Acepta) && (
+              <View style={[s.dateWaitingBox, { backgroundColor: '#F59E0B15' }]}>
+                <Ionicons name="hourglass" size={16} color="#F59E0B" />
+                <Text style={[s.dateWaitingText, { color: '#F59E0B' }]}>
+                  {iAccepted
+                    ? 'Esperando que tu match acepte...'
+                    : 'Tu match ya aceptó ¡Es tu turno!'}
+                </Text>
+              </View>
+            )}
+
+            {/* ── Botones de acción ──────────────────────────────── */}
+            <View style={s.dateBtnRow}>
+              <TouchableOpacity
+                style={[s.dateBtn, s.dateBtnAccept]}
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onAccept(); }}
+                disabled={dateLoading}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={[colors.primary, colors.secondary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={s.dateBtnGradient}
+                >
+                  {dateLoading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="heart" size={18} color="#fff" />
+                      <Text style={s.dateBtnAcceptText}>¡Ir!</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[s.dateBtn, s.dateBtnAlt, {
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.04)',
+                  borderColor: colors.glassBorder,
+                }]}
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onNewPlace(); }}
+                disabled={dateLoading}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="refresh" size={18} color={colors.text} />
+                <Text style={[s.dateBtnAltText, { color: colors.text }]}>Otro lugar</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+      </LinearGradient>
+    </Animated.View>
+  );
+}
 
 // ── Burbuja de mensaje ────────────────────────────────────────────────────────
 function MessageBubble({ msg, isMe, colors, isDark }: { msg: any; isMe: boolean; colors: any; isDark: boolean }) {
@@ -76,7 +315,10 @@ export default function ChatScreen() {
   const { colors, isDark } = useTheme();
   const params = useLocalSearchParams<{ userId: string; name: string; photo: string }>();
   const { userId, name, photo } = params;
-  const { messages, loading, sending, sendMessage, myId } = useChat(userId);
+  const {
+    messages, loading, sending, sendMessage, myId,
+    dateSuggestion, dateLoading, acceptDate, rejectDate, requestNewPlace,
+  } = useChat(userId);
   const { online, lastSeen } = usePresence(userId);
   const insets = useSafeAreaInsets();
   const [input, setInput] = useState('');
@@ -104,6 +346,13 @@ export default function ChatScreen() {
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 150);
     }
   }, [messages.length]);
+
+  // Scroll cuando aparece sugerencia de cita
+  useEffect(() => {
+    if (dateSuggestion) {
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 300);
+    }
+  }, [dateSuggestion]);
 
   const handleSend = useCallback((textOverride?: string) => {
     const text = (textOverride || input).trim();
@@ -227,6 +476,19 @@ export default function ChatScreen() {
             showsVerticalScrollIndicator={false}
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
             keyboardShouldPersistTaps="handled"
+            ListFooterComponent={
+              dateSuggestion ? (
+                <DateSuggestionCard
+                  suggestion={dateSuggestion}
+                  myId={myId}
+                  onAccept={() => acceptDate(dateSuggestion.matchId)}
+                  onNewPlace={() => requestNewPlace(dateSuggestion.matchId)}
+                  dateLoading={dateLoading}
+                  colors={colors}
+                  isDark={isDark}
+                />
+              ) : null
+            }
           />
         </Pressable>
 
@@ -345,6 +607,107 @@ const s = StyleSheet.create({
   bubbleText: { fontSize: 15.5, lineHeight: 22, fontWeight: '400' },
   bubbleMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 4 },
   bubbleTime: { fontSize: 10.5, fontWeight: '500' },
+
+  // Date suggestion card
+  dateCardWrap: { marginTop: 10, marginBottom: 10 },
+  dateCard: {
+    borderRadius: 24, padding: 18, borderWidth: 1,
+    shadowColor: '#8B5CF6', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12, shadowRadius: 20, elevation: 6,
+  },
+  dateHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, marginBottom: 12,
+  },
+  dateSparkle: { fontSize: 18 },
+  dateHeaderText: { fontSize: 17, fontWeight: '800', letterSpacing: -0.3 },
+
+  dateMsgBox: {
+    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14,
+    marginBottom: 14, alignItems: 'center',
+  },
+  dateMsgText: { fontSize: 14, fontWeight: '700', textAlign: 'center' },
+
+  datePhotoWrap: {
+    height: 170, borderRadius: 18, overflow: 'hidden',
+    marginBottom: 14, position: 'relative',
+  },
+  datePhoto: { width: '100%', height: '100%' },
+  datePhotoOverlay: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: 60,
+  },
+  datePhotoNav: {
+    position: 'absolute', bottom: 8, left: 0, right: 0,
+    flexDirection: 'row', justifyContent: 'center', gap: 5,
+  },
+  datePhotoDot: {
+    width: 6, height: 6, borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+  },
+  datePhotoDotActive: { backgroundColor: '#fff', width: 18 },
+  datePhotoArrow: {
+    position: 'absolute', top: '50%', marginTop: -16,
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  datePhotoArrowLeft: { left: 8 },
+  datePhotoArrowRight: { right: 8 },
+
+  dateInfo: { marginBottom: 12 },
+  dateRestName: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3, marginBottom: 8 },
+  dateTagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
+  dateTag: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10,
+  },
+  dateTagText: { fontSize: 12, fontWeight: '700' },
+  dateDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  dateDetailText: { fontSize: 13, fontWeight: '500', flex: 1 },
+
+  dateSuggestionBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14,
+    borderWidth: 1, marginTop: 8,
+  },
+  dateSuggestionText: { fontSize: 16, fontWeight: '800' },
+
+  dateMenuSection: { marginTop: 12 },
+  dateMenuTitle: { fontSize: 12, fontWeight: '700', marginBottom: 6 },
+  dateMenuItem: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  dateMenuName: { fontSize: 13, fontWeight: '600' },
+  dateMenuPrice: { fontSize: 13, fontWeight: '700' },
+
+  dateAcceptedBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14,
+    marginTop: 4,
+  },
+  dateAcceptedText: { fontSize: 14, fontWeight: '700', flex: 1 },
+
+  dateWaitingBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14,
+    marginBottom: 10,
+  },
+  dateWaitingText: { fontSize: 13, fontWeight: '600', flex: 1 },
+
+  dateBtnRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  dateBtn: { flex: 1, borderRadius: 18, overflow: 'hidden' },
+  dateBtnAccept: {},
+  dateBtnGradient: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 14,
+  },
+  dateBtnAcceptText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  dateBtnAlt: {
+    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
+    flexDirection: 'row', gap: 6, paddingVertical: 14, borderRadius: 18,
+  },
+  dateBtnAltText: { fontSize: 14, fontWeight: '700' },
 
   // Input bar
   inputBar: {

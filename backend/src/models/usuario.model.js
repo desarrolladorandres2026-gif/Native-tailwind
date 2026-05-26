@@ -32,6 +32,8 @@ const settingsSchema = new mongoose.Schema(
     verified_only: { type: Boolean, default: false },
     has_bio_only: { type: Boolean, default: false },
     min_photos: { type: Number, default: 0 },
+    looking_for: { type: String, enum: ['amistad', 'citas', 'serio', 'casual', 'no_lo_se', 'ALL', ''], default: 'ALL' },
+    interests_filter: { type: [String], default: [] },
 
     // Notificaciones
     notif_matches: { type: Boolean, default: true },
