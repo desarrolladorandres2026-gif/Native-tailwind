@@ -23,6 +23,13 @@ const login = async (req, res) => {
       return res.status(401).json({ message: 'Correo o contraseña incorrectos' });
     }
 
+    // Usuario registrado con Google/Facebook no puede hacer login con contraseña
+    if (usuario.auth_provider && usuario.auth_provider !== 'local') {
+      return res.status(401).json({
+        message: `Esta cuenta usa ${usuario.auth_provider === 'google' ? 'Google' : 'Facebook'} para iniciar sesión`,
+      });
+    }
+
     if (!usuario.activo) {
       return res.status(401).json({ message: 'Cuenta desactivada' });
     }

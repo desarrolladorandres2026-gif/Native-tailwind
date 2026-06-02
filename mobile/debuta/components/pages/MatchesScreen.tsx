@@ -182,7 +182,7 @@ export default function MatchesScreen() {
               </Text>
               <TouchableOpacity 
                 style={[s.exploreBtn, { backgroundColor: colors.primary }]}
-                onPress={() => router.push('/(tabs)/')}
+                onPress={() => router.push('/')}
               >
                 <Text style={s.exploreBtnText}>Explorar personas</Text>
               </TouchableOpacity>

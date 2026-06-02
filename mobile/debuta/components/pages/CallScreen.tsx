@@ -127,8 +127,6 @@ export default function CallScreen() {
 
   const handleAccept = useCallback(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setCurrentType('active');
-    setIsConnected(true);
     acceptCall();
   }, [acceptCall]);
 
@@ -166,21 +164,15 @@ export default function CallScreen() {
 
   // ── Video streams ──────────────────────────────────────────────────────────
   const showVideo = isVideo === 'true';
-  const remoteStreamURL = remoteStream
-    ? (remoteStream as any).toURL?.() ?? null
-    : null;
-  const localStreamURL = localStream
-    ? (localStream as any).toURL?.() ?? null
-    : null;
 
   return (
     <View style={s.root}>
       <StatusBar barStyle="light-content" />
 
       {/* ── Fondo: video remoto o foto ────────────────────────────────────── */}
-      {showVideo && remoteStreamURL && RTCView ? (
+      {showVideo && remoteStream && RTCView ? (
         <RTCView
-          streamURL={remoteStreamURL}
+          stream={remoteStream}
           style={StyleSheet.absoluteFill}
           objectFit="cover"
           mirror={false}
@@ -256,10 +248,10 @@ export default function CallScreen() {
           </View>
 
           {/* ── Video local en miniatura (esquina superior derecha) ─────────── */}
-          {showVideo && localStreamURL && isConnected && RTCView && (
+          {showVideo && localStream && isConnected && RTCView && (
             <View style={s.localVideoContainer}>
               <RTCView
-                streamURL={localStreamURL}
+                stream={localStream}
                 style={s.localVideo}
                 objectFit="cover"
                 mirror

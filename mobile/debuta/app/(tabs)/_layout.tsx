@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 
 function TabIcon({
@@ -99,7 +99,6 @@ export default function TabsLayout() {
   );
 }
 
-import { Platform } from 'react-native';
 
 const styles = StyleSheet.create({
   badge: {

@@ -206,7 +206,7 @@ export default function OnboardingScreen() {
         <LinearGradient colors={colors.bg} start={[0, 0]} end={[1, 1]} style={StyleSheet.absoluteFillObject} />
         <LinearGradient colors={[`${colors.primary}25`, 'transparent']} style={[s.bgBlob, { left: -W * 0.2, top: -W * 0.1 }]} />
         <LinearGradient colors={[`${colors.secondary}25`, 'transparent']} style={[s.bgBlob, { right: -W * 0.2, bottom: W * 0.05 }]} />
-        <View style={StyleSheet.absoluteFillObject} backgroundColor={isDark ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.85)"} />
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: isDark ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.85)" }]} />
       </Animated.View>
 
       {/* ── Corazones Flotantes ── */}

@@ -107,36 +107,76 @@ export async function requestMediaPermissions(isVideo: boolean): Promise<boolean
   return true;
 }
 
-// ── Stubs para Expo Go ──────────────────────────────────────────────────────
-function useWebRTCStub() {
+// ── Implementación stub para Expo Go (sin audio real) ───────────────────────
+// expo-av requiere el módulo nativo ExponentAV, que NO está disponible en Expo Go.
+// Esta implementación stub evita el crash y muestra un aviso al usuario.
+function useWebRTCExpoGo(socket: Socket | null) {
+  const [localStream, setLocalStream]   = useState<WebRTCStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<WebRTCStream | null>(null);
+  const [isConnected, setIsConnected]   = useState(false);
+
+  const socketRef   = useRef<Socket | null>(null);
+  const toIdRef     = useRef<string>('');
+
+  useEffect(() => { socketRef.current = socket; }, [socket]);
+
   useEffect(() => {
-    if (__DEV__) {
-      console.warn(
-        '⚠️ [WebRTC] Expo Go detectado — WebRTC NO está disponible.\n' +
-        '   Para habilitar llamadas reales ejecuta:\n' +
-        '   npx expo run:android'
-      );
-    }
+    console.warn(
+      '⚠️ [ExpoGo] Las llamadas de audio/vídeo no están disponibles en Expo Go.\n' +
+      '   Usa "npx expo run:android" o "npx expo run:ios" para probar WebRTC real.'
+    );
   }, []);
 
-  const expoGoError = () => {
-    throw new Error(
-      'EXPO_GO_NO_WEBRTC: Las llamadas no están disponibles en Expo Go. ' +
-      'Ejecuta "npx expo run:android" para usar llamadas reales.'
+  const createOffer = useCallback(async (toId: string, _isVideo: boolean) => {
+    toIdRef.current = toId;
+    setLocalStream({ active: false, type: 'stub' });
+    Alert.alert(
+      'Expo Go – Sin audio',
+      'Las llamadas en tiempo real no están disponibles en Expo Go. ' +
+      'Compila la app con "npx expo run:android" para habilitar WebRTC.',
+      [{ text: 'OK' }]
     );
-  };
+    return { type: 'offer', sdp: `expo-go-stub:${Date.now()}` };
+  }, []);
+
+  const createAnswer = useCallback(async (toId: string, _offerSdp: any, _isVideo: boolean) => {
+    toIdRef.current = toId;
+    setLocalStream({ active: false, type: 'stub' });
+    return { type: 'answer', sdp: `expo-go-stub-answer:${Date.now()}` };
+  }, []);
+
+  const setRemoteAnswer = useCallback(async (_answerSdp: any) => {
+    setIsConnected(false);
+  }, []);
+
+  const addIceCandidate = useCallback(async (_candidate: any) => {}, []);
+
+  const toggleMute = useCallback((_muted: boolean) => {
+    console.log('🎤 [ExpoGo-Stub] toggleMute – sin efecto en Expo Go');
+  }, []);
+
+  const toggleCamera = useCallback((_off: boolean) => {
+    console.log('📷 [ExpoGo-Stub] toggleCamera – sin efecto en Expo Go');
+  }, []);
+
+  const cleanup = useCallback(() => {
+    setLocalStream(null);
+    setRemoteStream(null);
+    setIsConnected(false);
+    toIdRef.current = '';
+  }, []);
 
   return {
-    localStream:     null as WebRTCStream | null,
-    remoteStream:    null as WebRTCStream | null,
-    isConnected:     false,
-    createOffer:     async (_toId: string, _isVideo: boolean) => { expoGoError(); return null as any; },
-    createAnswer:    async (_toId: string, _offerSdp: any, _isVideo: boolean) => { expoGoError(); return null as any; },
-    setRemoteAnswer: async (_answerSdp: any) => {},
-    addIceCandidate: async (_candidate: any) => {},
-    toggleMute:      (_muted: boolean) => {},
-    toggleCamera:    (_off: boolean) => {},
-    cleanup:         () => {},
+    localStream,
+    remoteStream,
+    isConnected,
+    createOffer,
+    createAnswer,
+    setRemoteAnswer,
+    addIceCandidate,
+    toggleMute,
+    toggleCamera,
+    cleanup,
   };
 }
 
@@ -163,6 +203,7 @@ function useWebRTCNative(socket: Socket | null) {
   const iceCandidateBuffer = useRef<any[]>([]);
   const remoteDescSet      = useRef(false);
   const socketRef          = useRef<Socket | null>(null);
+  const localStreamRef     = useRef<any>(null);
 
   // Mantener socketRef actualizado sin re-crear callbacks
   useEffect(() => {
@@ -185,12 +226,6 @@ function useWebRTCNative(socket: Socket | null) {
   // ── Obtener acceso al micrófono y cámara ────────────────────────────────
   const getLocalStream = async (isVideo: boolean): Promise<any> => {
     try {
-      // Primero solicitar permisos explícitamente en Android
-      const permissionsGranted = await requestMediaPermissions(isVideo);
-      if (!permissionsGranted) {
-        throw new Error('Permisos de micrófono/cámara denegados por el usuario');
-      }
-
       console.log('🎤 [WebRTC] Solicitando getUserMedia... isVideo:', isVideo);
       const stream = await mediaDevices.getUserMedia({
         audio: {
@@ -210,6 +245,7 @@ function useWebRTCNative(socket: Socket | null) {
       });
 
       setLocalStream(stream);
+      localStreamRef.current = stream;
       return stream;
     } catch (e: any) {
       console.error('❌ [WebRTC] Error en getUserMedia:', e?.message ?? e);
@@ -488,7 +524,7 @@ function useWebRTCNative(socket: Socket | null) {
       console.log('🔊 [WebRTC] InCallManager detenido');
     } catch {}
 
-    localStream?.getTracks().forEach((track: any) => {
+    localStreamRef.current?.getTracks().forEach((track: any) => {
       track.stop();
       console.log(`🧹 [WebRTC] Track detenido: ${track.kind}`);
     });
@@ -501,10 +537,11 @@ function useWebRTCNative(socket: Socket | null) {
     remoteDescSet.current      = false;
     iceCandidateBuffer.current = [];
     setLocalStream(null);
+    localStreamRef.current = null;
     setRemoteStream(null);
     setIsConnected(false);
     console.log('🧹 [WebRTC] Limpieza completa');
-  }, [localStream]);
+  }, []);
 
   return {
     localStream,
@@ -524,7 +561,7 @@ function useWebRTCNative(socket: Socket | null) {
 export function useWebRTC(socket: Socket | null) {
   if (IS_EXPO_GO) {
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    return useWebRTCStub();
+    return useWebRTCExpoGo(socket);
   }
   // eslint-disable-next-line react-hooks/rules-of-hooks
   return useWebRTCNative(socket);

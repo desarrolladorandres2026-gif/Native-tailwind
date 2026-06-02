@@ -12,6 +12,12 @@ let io;
 // userId (string) → Date de conexión
 const onlineUsers = new Map();
 
+// ── Llamadas pendientes (para usuarios offline) ───────────────────────────────
+// userId (string) → { fromId, signalData, isVideo, callerName, callerPhoto, ts }
+// Se entrega en cuanto el receptor se reconecta (máx. 60 s de antigüedad).
+const pendingCalls = new Map();
+const PENDING_CALL_TTL_MS = 60_000; // 60 segundos
+
 // ── Helper: generar día/hora sugerida ────────────────────────────────────────
 const getDiaSugerido = () => {
   const dias = ['Sábado', 'Viernes', 'Domingo'];
@@ -22,7 +28,24 @@ const getDiaSugerido = () => {
 };
 
 const initSocket = (server) => {
-  io = new Server(server, { cors: { origin: '*' } });
+  const corsConfig = {};
+  if (process.env.NODE_ENV === 'production') {
+    const allowedOrigins = process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+      : [];
+    corsConfig.origin = (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('CORS bloqueado por Socket.io'));
+      }
+    };
+    corsConfig.credentials = true;
+  } else {
+    corsConfig.origin = '*';
+  }
+
+  io = new Server(server, { cors: corsConfig });
 
   // ── Autenticación ─────────────────────────────────────────────────────────
   // El cliente debe enviar: socket.auth = { token: '<access_token>' }
@@ -50,6 +73,25 @@ const initSocket = (server) => {
 
     // Notificar a todos los demás que este usuario está en línea
     socket.broadcast.emit('usuario:online', { userId: usuarioId });
+
+    // ── Entregar llamada pendiente si existe ──────────────────────────────
+    const pending = pendingCalls.get(usuarioId);
+    if (pending) {
+      const age = Date.now() - pending.ts;
+      if (age < PENDING_CALL_TTL_MS) {
+        console.log(`📞 [CALL] Entregando llamada pendiente a ${usuarioId} (age ${age}ms)`);
+        socket.emit('call:incoming', {
+          fromId:      pending.fromId,
+          signalData:  pending.signalData,
+          isVideo:     pending.isVideo,
+          callerName:  pending.callerName,
+          callerPhoto: pending.callerPhoto,
+        });
+      } else {
+        console.log(`⏰ [CALL] Llamada pendiente para ${usuarioId} expiró (${age}ms > ${PENDING_CALL_TTL_MS}ms)`);
+      }
+      pendingCalls.delete(usuarioId);
+    }
 
     // ── Consulta puntual de presencia ─────────────────────────────────────
     // Cliente emite: presencia:estado  { userId: string }
@@ -195,8 +237,28 @@ const initSocket = (server) => {
 
     // ── Sistema de Llamadas ───────────────────────────────────────────────────
     // Cliente (llamante) emite: call:request { paraId, signalData, isVideo }
-    socket.on('call:request', ({ paraId, signalData, isVideo, callerName, callerPhoto }) => {
+    socket.on('call:request', async ({ paraId, signalData, isVideo, callerName, callerPhoto }) => {
       console.log(`📞 [CALL] De: ${usuarioId} → Para: ${paraId} | Video: ${isVideo}`);
+
+      try {
+        const yoId = new mongoose.Types.ObjectId(usuarioId);
+        const otroId = new mongoose.Types.ObjectId(paraId);
+        const ids = [yoId, otroId].sort();
+        const match = await Match.findOne({ usuarios: { $all: ids, $size: 2 }, esMatch: true });
+
+        if (!match) {
+          console.warn(`⚠️ [CALL] Llamada rechazada: no hay match entre ${usuarioId} y ${paraId}`);
+          socket.emit('call:unavailable', { paraId, reason: 'no_match' });
+          return;
+        }
+      } catch (err) {
+        console.error('Error validando match en call:request:', err);
+        return;
+      }
+
+      // Resolver nombre/foto: primero del payload, luego del auth del socket
+      const resolvedName  = callerName  || socket.handshake.auth?.name  || 'Usuario';
+      const resolvedPhoto = callerPhoto || socket.handshake.auth?.photo || null;
 
       // Diagnóstico: ver cuántos sockets hay en la sala del receptor
       const roomName = `user:${paraId}`;
@@ -205,15 +267,21 @@ const initSocket = (server) => {
       console.log(`📡 [CALL] Sala "${roomName}" tiene ${socketsEnSala} socket(s) conectados`);
 
       if (socketsEnSala === 0) {
-        console.warn(`⚠️ [CALL] El receptor ${paraId} NO está conectado al socket. La llamada no llegará.`);
-        // Notificar al llamante que el receptor no está disponible
-        socket.emit('call:unavailable', { paraId, reason: 'offline' });
+        // Receptor offline → guardar llamada pendiente por 60 s
+        console.warn(`⚠️ [CALL] Receptor ${paraId} offline. Guardando llamada pendiente...`);
+        pendingCalls.set(String(paraId), {
+          fromId:      usuarioId,
+          signalData,
+          isVideo,
+          callerName:  resolvedName,
+          callerPhoto: resolvedPhoto,
+          ts: Date.now(),
+        });
+        // Informar al llamante que está esperando (no cortar la llamada)
+        socket.emit('call:waiting', { paraId, reason: 'offline' });
+        console.log(`✅ [CALL] Llamada pendiente guardada para ${paraId}`);
         return;
       }
-
-      // Resolver nombre/foto: primero del payload, luego del auth del socket
-      const resolvedName  = callerName  || socket.handshake.auth?.name  || 'Usuario';
-      const resolvedPhoto = callerPhoto || socket.handshake.auth?.photo || null;
 
       io.to(roomName).emit('call:incoming', {
         fromId: usuarioId,
@@ -254,6 +322,32 @@ const initSocket = (server) => {
     socket.on('call:end', ({ paraId }) => {
       console.log(`📵 Llamada terminada por ${usuarioId}`);
       io.to(`user:${paraId}`).emit('call:ended', { fromId: usuarioId });
+      
+      // Limpiar llamadas pendientes si el llamante colgó antes de conectar
+      const pending = pendingCalls.get(String(paraId));
+      if (pending && String(pending.fromId) === String(usuarioId)) {
+        pendingCalls.delete(String(paraId));
+        console.log(`🚫 [CALL] Llamada pendiente para ${paraId} eliminada porque el llamante colgó.`);
+      }
+    });
+
+    // ── Relay de audio para Expo Go (sin WebRTC nativo) ──────────────────
+    // Cliente emite: call:audio-chunk { paraId, audioData (base64), chunkIndex }
+    // Servidor re-emite al receptor: call:audio-chunk { fromId, audioData, chunkIndex }
+    socket.on('call:audio-chunk', ({ paraId, audioData, chunkIndex }) => {
+      io.to(`user:${paraId}`).emit('call:audio-chunk', {
+        fromId: usuarioId,
+        audioData,
+        chunkIndex,
+      });
+    });
+
+    // ── Cancelar llamada pendiente (llamante canceló antes de que el receptor se conecte) ──
+    socket.on('call:cancel_pending', ({ paraId }) => {
+      if (pendingCalls.has(String(paraId))) {
+        pendingCalls.delete(String(paraId));
+        console.log(`🚫 [CALL] Llamada pendiente cancelada por ${usuarioId} para ${paraId}`);
+      }
     });
 
     // ── Desconexión ───────────────────────────────────────────────────────

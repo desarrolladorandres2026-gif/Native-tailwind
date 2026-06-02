@@ -188,8 +188,10 @@ usuarioSchema.pre('save', async function (next) {
   next();
 });
 
-// ── Comparar contraseña ───────────────────────────────────
+// ── Comparar contraseña ───────────────────────────────────────────────────────
 usuarioSchema.methods.compararPassword = async function (plain) {
+  // Si no tiene password (usuario social), nunca coincide
+  if (!this.password) return false;
   return bcrypt.compare(plain, this.password);
 };
 

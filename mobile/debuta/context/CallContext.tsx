@@ -7,19 +7,12 @@ import { useSocket } from './SocketContext';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import {
-  StyleSheet, View, Text, Image, TouchableOpacity,
-  Animated, Dimensions, Platform, Modal, Alert, Linking,
+  Alert, Linking,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useAudioPlayer } from 'expo-audio';
-import Constants from 'expo-constants';
 import { useWebRTC, requestMediaPermissions } from '../hooks/useWebRTC';
 import type { WebRTCStream as MediaStream } from '../hooks/useWebRTC';
-
-const { width } = Dimensions.get('window');
-const IS_EXPO_GO = Constants.executionEnvironment === 'storeClient';
+import IncomingCallScreen from '../components/pages/IncomingCallScreen';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 interface CallInfo {
@@ -58,111 +51,6 @@ const CallContext = createContext<CallContextType>({
   toggleCamera: () => {},
 });
 
-// ── Toast de llamada entrante ─────────────────────────────────────────────────
-function IncomingCallToast({ call, onAccept, onReject }: {
-  call: CallInfo;
-  onAccept: () => void;
-  onReject: () => void;
-}) {
-  const safeTop = Platform.OS === 'ios' ? 50 : 30;
-  const slideAnim = useRef(new Animated.Value(-160)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    Animated.spring(slideAnim, {
-      toValue: safeTop,
-      useNativeDriver: true,
-      tension: 50,
-      friction: 8,
-    }).start();
-
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.15, duration: 600, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, []);
-
-  const dismiss = (action: 'accept' | 'reject') => {
-    Animated.timing(slideAnim, {
-      toValue: -200,
-      duration: 250,
-      useNativeDriver: true,
-    }).start(() => {
-      if (action === 'accept') onAccept();
-      else onReject();
-    });
-  };
-
-  return (
-    <Modal
-      visible
-      transparent
-      animationType="none"
-      statusBarTranslucent
-      onRequestClose={() => dismiss('reject')}
-    >
-      <View style={s.modalOverlay} pointerEvents="box-none">
-        <Animated.View style={[s.toast, { transform: [{ translateY: slideAnim }] }]}>
-          <BlurView intensity={95} tint="dark" style={s.toastBlur}>
-            <LinearGradient
-              colors={['rgba(139,92,246,0.25)', 'rgba(217,70,239,0.15)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-            <View style={s.toastInner}>
-              <View style={s.avatarZone}>
-                <Animated.View style={[s.pulseRing, { transform: [{ scale: pulseAnim }] }]} />
-                <Image
-                  source={{ uri: call.callerPhoto || 'https://via.placeholder.com/80' }}
-                  style={s.toastAvatar}
-                />
-              </View>
-              <View style={s.toastInfo}>
-                <Text style={s.toastName} numberOfLines={1}>{call.callerName}</Text>
-                <View style={s.toastTypeBadge}>
-                  <Ionicons
-                    name={call.isVideo ? 'videocam' : 'call'}
-                    size={11}
-                    color="rgba(255,255,255,0.8)"
-                  />
-                  <Text style={s.toastTypeText}>
-                    {call.isVideo ? 'Video llamada' : 'Llamada de voz'}
-                  </Text>
-                </View>
-              </View>
-              <View style={s.toastActions}>
-                <TouchableOpacity
-                  style={[s.toastBtn, s.rejectBtn]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                    dismiss('reject');
-                  }}
-                >
-                  <Ionicons name="close" size={22} color="white" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[s.toastBtn, s.acceptBtn]}
-                  onPress={() => {
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    dismiss('accept');
-                  }}
-                >
-                  <Ionicons name={call.isVideo ? 'videocam' : 'call'} size={20} color="white" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </BlurView>
-        </Animated.View>
-      </View>
-    </Modal>
-  );
-}
-
 // ── Provider ──────────────────────────────────────────────────────────────────
 export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { socket } = useSocket();
@@ -178,6 +66,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Ref para acceder al activeCall actual dentro de callbacks del socket
   const activeCallRef = useRef<CallInfo | null>(null);
   useEffect(() => { activeCallRef.current = activeCall; }, [activeCall]);
+
+  const isOutgoingRef = useRef(false);
+  useEffect(() => { isOutgoingRef.current = isOutgoing; }, [isOutgoing]);
 
   // ── WebRTC ────────────────────────────────────────────────────────────
   const {
@@ -338,6 +229,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }, 300);
     };
 
+    const handleWaiting = ({ paraId, reason }: { paraId: string; reason: string }) => {
+      console.log(`⏳ [CALL] Receptor offline/esperando: ${paraId} (razón: ${reason})`);
+      // La llamada sigue en curso esperando que se conecte
+    };
+
     // Señales WebRTC: ICE candidates y renegociación
     const handleSignal = async ({ signalData }: { fromId: string; signalData: any }) => {
       if (!signalData) return;
@@ -358,6 +254,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socket.on('call:ended',       handleEnded);
     socket.on('call:unavailable', handleUnavailable);
     socket.on('call:signal',      handleSignal);
+    socket.on('call:waiting',     handleWaiting);
 
     return () => {
       socket.off('call:incoming',    handleIncoming);
@@ -366,6 +263,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socket.off('call:ended',       handleEnded);
       socket.off('call:unavailable', handleUnavailable);
       socket.off('call:signal',      handleSignal);
+      socket.off('call:waiting',     handleWaiting);
     };
   }, [socket, playRingtone, stopRingtone, setRemoteAnswer, addIceCandidate, fullCleanup]);
 
@@ -373,16 +271,6 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const initiateCall = useCallback(async (
     toId: string, name: string, photo: string | undefined, isVideo: boolean
   ) => {
-    // Guard: verificar Expo Go primero
-    if (IS_EXPO_GO) {
-      Alert.alert(
-        'Función no disponible',
-        'Las llamadas no están disponibles en Expo Go.\n\n' +
-        'Para habilitar llamadas, ejecuta:\nnpx expo run:android',
-        [{ text: 'Entendido' }]
-      );
-      return;
-    }
 
     // Guard: evitar doble llamada
     if (initiatingRef.current) {
@@ -428,6 +316,15 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       console.log('📡 [CALL] call:request emitido con SDP real. type:', offer.type);
+      initiatingRef.current = false;
+
+      // Timeout de 30s si no hay respuesta
+      setTimeout(() => {
+        if (isOutgoingRef.current && activeCallRef.current?.fromId === toId) {
+          endCall();
+          Alert.alert('Sin respuesta', 'El usuario no respondió la llamada.');
+        }
+      }, 30000);
 
       // Navegar a pantalla de "llamando..."
       router.push({
@@ -470,20 +367,6 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const acceptCall = useCallback(async () => {
     if (!socket || !incomingCall) return;
 
-    // Guard: verificar Expo Go
-    if (IS_EXPO_GO) {
-      Alert.alert(
-        'Función no disponible',
-        'Las llamadas no están disponibles en Expo Go.\n\n' +
-        'Para habilitar llamadas, ejecuta:\nnpx expo run:android',
-        [{ text: 'Entendido' }]
-      );
-      // Rechazar la llamada automáticamente
-      socket.emit('call:reject', { paraId: incomingCall.fromId });
-      setIncomingCall(null);
-      stopRingtone();
-      return;
-    }
 
     // Guard: evitar doble aceptación (desde toast + desde CallScreen)
     if (acceptingRef.current) {
@@ -584,9 +467,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // ── Terminar llamada ──────────────────────────────────────────────────
   const endCall = useCallback(() => {
     if (!socket) return;
-    stopRingtone();
     const targetId = activeCall?.fromId || incomingCall?.fromId;
-    if (targetId) socket.emit('call:end', { paraId: targetId });
+    if (!targetId) return;
+    stopRingtone();
+    socket.emit('call:end', { paraId: targetId });
     fullCleanup();
     setActiveCall(null);
     setIncomingCall(null);
@@ -617,7 +501,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <CallContext.Provider value={value}>
       {children}
       {incomingCall && (
-        <IncomingCallToast
+        <IncomingCallScreen
           call={incomingCall}
           onAccept={acceptCall}
           onReject={rejectCall}
@@ -626,55 +510,5 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </CallContext.Provider>
   );
 };
-
-const s = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-start',
-  },
-  toast: {
-    marginTop: Platform.OS === 'ios' ? 54 : 36,
-    marginHorizontal: 16,
-    borderRadius: 24,
-    overflow: 'hidden',
-    elevation: 20,
-    shadowColor: '#8B5CF6',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-  },
-  toastBlur: { overflow: 'hidden', borderRadius: 24 },
-  toastInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    gap: 12,
-  },
-  avatarZone: { position: 'relative', width: 52, height: 52 },
-  pulseRing: {
-    position: 'absolute',
-    top: -4, left: -4, right: -4, bottom: -4,
-    borderRadius: 34,
-    borderWidth: 2,
-    borderColor: 'rgba(139,92,246,0.5)',
-  },
-  toastAvatar: { width: 52, height: 52, borderRadius: 26 },
-  toastInfo: { flex: 1 },
-  toastName: { color: 'white', fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
-  toastTypeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 3,
-  },
-  toastTypeText: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '500' },
-  toastActions: { flexDirection: 'row', gap: 10 },
-  toastBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  rejectBtn: { backgroundColor: '#FF3B30' },
-  acceptBtn: { backgroundColor: '#34C759' },
-});
 
 export const useCall = () => useContext(CallContext);

@@ -90,7 +90,9 @@ export default function DiscoverScreen() {
         name,
         userId,
         matchId: result.matchId ?? '',
-        photo:   profile.profile_picture?.url || '',
+        photo:   profile.profile_picture
+                   ? (typeof profile.profile_picture === 'object' ? profile.profile_picture.url : profile.profile_picture)
+                   : '',
       });
       setShowMatch(true);
     }

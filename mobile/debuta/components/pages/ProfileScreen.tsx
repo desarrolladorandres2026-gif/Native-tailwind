@@ -153,7 +153,7 @@ export default function ProfileScreen() {
   const renderInfoItem = (icon: string, label: string, key: keyof UserProfile, privacyKey?: any) => {
     const value = editedData[key] as string;
     if (!value && !isEditing) return null;
-    const isVisible = privacyKey ? editedData.settings?.privacy?.[privacyKey] !== false : true;
+    const isVisible = privacyKey ? (editedData.settings?.privacy as any)?.[privacyKey] !== false : true;
 
     return (
       <View style={s.infoItem}>

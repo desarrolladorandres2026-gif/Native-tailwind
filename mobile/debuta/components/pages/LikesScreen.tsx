@@ -129,7 +129,7 @@ export default function LikesScreen() {
               <Ionicons name="heart-outline" size={80} color={colors.glassBorder} />
               <Text style={[s.emptyTitle, { color: colors.text }]}>Aún sin likes</Text>
               <Text style={[s.emptySub, { color: colors.textDim }]}>Cuando alguien te dé like aparecerá aquí.</Text>
-              <TouchableOpacity style={[s.discoverBtn, { backgroundColor: colors.primary }]} onPress={() => router.push('/(tabs)/')}>
+              <TouchableOpacity style={[s.discoverBtn, { backgroundColor: colors.primary }]} onPress={() => router.push('/')}>
                 <Text style={s.discoverBtnText}>Explorar perfiles</Text>
               </TouchableOpacity>
             </View>

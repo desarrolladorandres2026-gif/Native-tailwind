@@ -131,7 +131,7 @@ export default function RegisterScreen() {
           showAlert({
             title: 'Acceso Restringido',
             message: 'Debuta es una comunidad exclusiva para mayores de 18 años.',
-            icon: 'shield-alert-outline',
+            icon: 'shield-outline',
             iconColor: colors.error
           });
           return false;
@@ -474,7 +474,7 @@ export default function RegisterScreen() {
             <View style={s.inputGroup}>
               <Text style={[s.label, { color: colors.textDim }]}>Confirmar Contraseña</Text>
               <View style={[s.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.glassBorder }, isValidationActive && (password !== confirmar || !confirmar) && { borderColor: colors.error, backgroundColor: `${colors.error}10` }]}>
-                <Ionicons name="checkmark-shield-outline" size={20} color={colors.textLight} />
+                <Ionicons name="shield-checkmark-outline" size={20} color={colors.textLight} />
                 <TextInput 
                   style={[s.input, { color: colors.text }]} placeholder="Repite la contraseña"
                   secureTextEntry={!showPassword} value={confirmar} onChangeText={setConfirmar}

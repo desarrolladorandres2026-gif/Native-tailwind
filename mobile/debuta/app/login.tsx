@@ -23,7 +23,7 @@ export default function LoginScreen() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
   const { reconnect } = useSocket();
-  const { login, loginWithGoogle, loginWithFacebook, loading, error, clearError } = useAuth();
+  const { login, loading, error, clearError } = useAuth();
 
   const [correo, setCorreo] = useState('');
   const [password, setPassword] = useState('');
@@ -69,23 +69,7 @@ export default function LoginScreen() {
     });
   };
 
-  const handleSocialLogin = async (type: 'google' | 'facebook') => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const method = type === 'google' ? loginWithGoogle : loginWithFacebook;
-    await method(async (_user) => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // Reconectar socket con el token recién guardado
-      await reconnect();
-      const rulesAccepted = await AsyncStorage.getItem('debuta_rules_accepted');
-      if (!rulesAccepted) {
-        router.replace('/rules');
-      } else if (_user.rol === 'asociado') {
-        router.replace('/partner');
-      } else {
-        router.replace('/(tabs)');
-      }
-    });
-  };
+
 
   return (
     <View style={[s.root, { backgroundColor: colors.bg[0] }]}>
@@ -190,21 +174,7 @@ export default function LoginScreen() {
                   </LinearGradient>
                 </TouchableOpacity>
 
-                <View style={s.divider}>
-                  <View style={[s.line, { backgroundColor: colors.glassBorder }]} />
-                  <Text style={[s.dividerText, { color: colors.textLight }]}>O entra con</Text>
-                  <View style={[s.line, { backgroundColor: colors.glassBorder }]} />
-                </View>
 
-                <View style={s.socialRow}>
-                  <TouchableOpacity style={[s.socialBtn, { backgroundColor: colors.bg[0], borderColor: colors.glassBorder }]} onPress={() => handleSocialLogin('google')}>
-                    <Ionicons name="logo-google" size={26} color="#DB4437" />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={[s.socialBtn, { backgroundColor: colors.bg[0], borderColor: colors.glassBorder }]} onPress={() => handleSocialLogin('facebook')}>
-                    <Ionicons name="logo-facebook" size={26} color="#4267B2" />
-                  </TouchableOpacity>
-                </View>
               </View>
 
               {!isKeyboardVisible && (
@@ -255,11 +225,7 @@ const s = StyleSheet.create({
   btnGradient: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   loginBtnText: { color: '#FFFFFF', fontSize: 19, fontWeight: '900', letterSpacing: 0.5 },
   btnDisabled: { opacity: 0.7 },
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 30 },
-  line: { flex: 1, height: 1 },
-  dividerText: { marginHorizontal: 15, fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
-  socialRow: { flexDirection: 'row', gap: 20, justifyContent: 'center' },
-  socialBtn: { width: 64, height: 64, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
+
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 35 },
   footerText: { fontSize: 15, fontWeight: '500' },
   registerText: { fontSize: 15, fontWeight: '900', textDecorationLine: 'underline' },

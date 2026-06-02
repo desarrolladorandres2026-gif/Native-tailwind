@@ -37,6 +37,7 @@ const forgotPassword = async (req, res) => {
 
     // Generar código y hashearlo
     const code     = generarCodigo();
+    console.log(`🔑 [DEBUG/DEV] Código de recuperación generado para ${correoNorm}: ${code}`);
     const hashed   = await bcrypt.hash(code, 10);
     const expires  = new Date(Date.now() + 15 * 60 * 1000); // 15 min
 

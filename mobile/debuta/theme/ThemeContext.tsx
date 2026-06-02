@@ -9,7 +9,7 @@ const THEME_STORAGE_KEY = 'debuta_theme_mode';
 
 const DARK_COLORS = {
   // Backgrounds (gradient array)
-  bg: ['#050505', '#160B2A', '#050505'] as string[],
+  bg: ['#050505', '#160B2A', '#050505'] as [string, string, ...string[]],
   // Cards / surfaces
   card: '#121212',
   // Input backgrounds
@@ -31,7 +31,7 @@ const DARK_COLORS = {
 };
 
 const LIGHT_COLORS = {
-  bg: ['#FFFFFF', '#F8F9FA', '#FFFFFF'] as string[],
+  bg: ['#FFFFFF', '#F8F9FA', '#FFFFFF'] as [string, string, ...string[]],
   card: '#FFFFFF',
   inputBg: 'rgba(0, 0, 0, 0.05)',
   glassBorder: '#EEEEEE',

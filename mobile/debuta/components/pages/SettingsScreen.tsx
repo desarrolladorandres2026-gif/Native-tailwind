@@ -626,8 +626,7 @@ export default function SettingsScreen() {
           <TouchableOpacity style={[s.actionBtn, { borderColor: colors.glassBorder }]} onPress={handleLogout}>
             <LinearGradient
               colors={['transparent', 'transparent']}
-              style={StyleSheet.absoluteFill}
-              borderRadius={20}
+              style={[StyleSheet.absoluteFill, { borderRadius: 20 }]}
             />
             <Ionicons name="log-out-outline" size={20} color={colors.primary} />
             <Text style={[s.actionBtnText, { color: colors.primary }]}>Cerrar Sesión</Text>
@@ -653,7 +652,7 @@ export default function SettingsScreen() {
         visible={showDiscoveryModal}
         onClose={() => setShowDiscoveryModal(false)}
         settings={localSettings}
-        onSave={async (newSettings) => {
+        onSave={async (newSettings: any) => {
           setLocalSettings({ ...localSettings, ...newSettings });
           await updateSettings(newSettings);
         }}
@@ -663,6 +662,17 @@ export default function SettingsScreen() {
       <ChangePasswordModal
         visible={showPasswordModal}
         onClose={() => setShowPasswordModal(false)}
+      />
+
+      {/* Modal de verificación de identidad */}
+      <VerifyIdentityModal
+        visible={showVerifyModal}
+        onClose={() => setShowVerifyModal(false)}
+        onVerified={() => {
+          if (userProfile) {
+            setUserProfile({ ...userProfile, is_verified: true });
+          }
+        }}
       />
     </SafeAreaView>
   );
