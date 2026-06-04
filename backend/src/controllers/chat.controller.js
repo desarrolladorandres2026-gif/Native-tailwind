@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Mensaje  = require('../models/mensaje.model');
 const Match    = require('../models/match.model');
+const { uploadBuffer } = require('../helpers/cloudinary');
 
 // Verifica que haya match entre yoId y otroId
 const getMatch = async (yoId, otroId) => {
@@ -75,4 +76,19 @@ const enviarMensaje = async (req, res) => {
   }
 };
 
-module.exports = { obtenerMensajes, enviarMensaje };
+const subirImagen = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No se recibió ninguna imagen' });
+    }
+    const { url } = await uploadBuffer(req.file.buffer, {
+      folder: `debuta/chats/${req.usuario._id.toString()}`,
+    });
+    res.status(200).json({ url });
+  } catch (err) {
+    console.error('subirImagen:', err);
+    res.status(500).json({ message: 'Error al subir la imagen', detail: err.message });
+  }
+};
+
+module.exports = { obtenerMensajes, enviarMensaje, subirImagen };

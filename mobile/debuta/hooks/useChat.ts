@@ -1,18 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { Socket } from 'socket.io-client';
 import { api } from '../components/services/api';
 import { Message } from '../components/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
-
-// ── Misma lógica de URL que api.ts ─────────────────────────────────────────────
-function getSocketUrl(): string {
-  if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
-  const host =
-    Constants.expoConfig?.hostUri?.split(':')[0] ||
-    (Constants.manifest as any)?.debuggerHost?.split(':')[0];
-  return host ? `http://${host}:3000` : 'http://localhost:3000';
-}
+import { useSocket } from '../context/SocketContext';
 
 // ── Tipos de sugerencia de cita ──────────────────────────────────────────────
 export interface DateSuggestionRestaurant {
@@ -56,7 +47,9 @@ export function useChat(matchedUserId: string) {
   const [dateSuggestion, setDateSuggestion] = useState<DateSuggestion | null>(null);
   const [dateLoading, setDateLoading] = useState(false);
 
-  const socketRef  = useRef<Socket | null>(null);
+  // ── Reutilizar socket global de SocketContext ────────────────────────────
+  const { socket, connected } = useSocket();
+
   const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null);
   const msgIds     = useRef<Set<string>>(new Set()); // dedup guard
 
@@ -96,97 +89,71 @@ export function useChat(matchedUserId: string) {
     }
   }, [matchedUserId]);
 
-  // ── Conectar Socket.io ─────────────────────────────────────────────────────
+  // ── Escuchar eventos del socket global ─────────────────────────────────────
   useEffect(() => {
-    let mounted = true;
+    // Carga inicial siempre por HTTP
+    fetchMessages();
 
-    const connectSocket = async () => {
-      const token = await AsyncStorage.getItem('access_token');
-      if (!token || !mounted) return;
+    if (!socket) return;
 
-      const socket = io(getSocketUrl(), {
-        auth:      { token },
-        transports: ['websocket'],
-        reconnectionAttempts: 5,
-        reconnectionDelay:    2000,
-      });
+    // Si el socket está conectado, detener polling
+    if (connected && pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
 
-      socket.on('connect', () => {
-        console.log('🔌 Socket conectado al chat');
-        // Parar polling HTTP una vez conectado por socket
-        if (pollRef.current) {
-          clearInterval(pollRef.current);
-          pollRef.current = null;
-        }
-      });
+    // Si no está conectado, activar polling de respaldo
+    if (!connected && !pollRef.current) {
+      pollRef.current = setInterval(fetchMessages, 5000);
+    }
 
-      socket.on('mensaje:nuevo', (msg: Message) => {
-        // Solo agregar si pertenece a esta conversación
-        const involucrado =
-          msg.sender_id === matchedUserId || msg.receiver_id === matchedUserId;
-        if (involucrado) addMessages([msg]);
-      });
-
-      // ── Listener de sugerencia de cita ─────────────────────────────────
-      socket.on('cita:sugerencia', (data: DateSuggestion) => {
-        console.log('💕 Sugerencia de cita recibida:', data.restaurante?.nombre);
-        setDateSuggestion(data);
-      });
-
-      // ── Listener de nueva sugerencia (otro lugar) ──────────────────────
-      socket.on('cita:nueva-sugerencia', (data: DateSuggestion) => {
-        console.log('🔄 Nueva sugerencia:', data.restaurante?.nombre);
-        setDateSuggestion(data);
-        setDateLoading(false);
-      });
-
-      // ── Listener de estado actualizado ─────────────────────────────────
-      socket.on('cita:estado-actualizado', (data: any) => {
-        setDateSuggestion(prev => {
-          if (!prev || prev.matchId !== data.matchId) return prev;
-          return { ...prev, recomendacion: data.recomendacion };
-        });
-      });
-
-      socket.on('connect_error', (err) => {
-        console.warn('Socket error, usando polling HTTP:', err.message);
-        // Si el socket falla, activar polling de respaldo
-        if (!pollRef.current) {
-          pollRef.current = setInterval(fetchMessages, 5000);
-        }
-      });
-
-      socket.on('disconnect', () => {
-        console.log('🔌 Socket desconectado');
-        // Reactivar polling mientras no hay socket
-        if (mounted && !pollRef.current) {
-          pollRef.current = setInterval(fetchMessages, 5000);
-        }
-      });
-
-      socketRef.current = socket;
+    const onMessage = (msg: Message) => {
+      // Solo agregar si pertenece a esta conversación
+      const involucrado =
+        msg.sender_id === matchedUserId || msg.receiver_id === matchedUserId;
+      if (involucrado) addMessages([msg]);
     };
 
-    fetchMessages();           // carga inicial
-    connectSocket();           // luego socket
+    const onDateSuggestion = (data: DateSuggestion) => {
+      if (__DEV__) console.log('💕 Sugerencia de cita recibida:', data.restaurante?.nombre);
+      setDateSuggestion(data);
+    };
+
+    const onNewSuggestion = (data: DateSuggestion) => {
+      if (__DEV__) console.log('🔄 Nueva sugerencia:', data.restaurante?.nombre);
+      setDateSuggestion(data);
+      setDateLoading(false);
+    };
+
+    const onStatusUpdated = (data: any) => {
+      setDateSuggestion(prev => {
+        if (!prev || prev.matchId !== data.matchId) return prev;
+        return { ...prev, recomendacion: data.recomendacion };
+      });
+    };
+
+    socket.on('mensaje:nuevo',          onMessage);
+    socket.on('cita:sugerencia',        onDateSuggestion);
+    socket.on('cita:nueva-sugerencia',  onNewSuggestion);
+    socket.on('cita:estado-actualizado', onStatusUpdated);
 
     return () => {
-      mounted = false;
-      socketRef.current?.disconnect();
-      socketRef.current = null;
+      socket.off('mensaje:nuevo',          onMessage);
+      socket.off('cita:sugerencia',        onDateSuggestion);
+      socket.off('cita:nueva-sugerencia',  onNewSuggestion);
+      socket.off('cita:estado-actualizado', onStatusUpdated);
       if (pollRef.current) {
         clearInterval(pollRef.current);
         pollRef.current = null;
       }
     };
-  }, [matchedUserId, fetchMessages, addMessages]);
+  }, [socket, connected, matchedUserId, fetchMessages, addMessages]);
 
   // ── Enviar mensaje ─────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return;
     setSending(true);
     try {
-      const socket = socketRef.current;
       if (socket?.connected) {
         // Vía Socket.io — el servidor emite 'mensaje:nuevo' a ambos
         socket.emit('mensaje:enviar', { paraId: matchedUserId, content: content.trim() });
@@ -203,7 +170,7 @@ export function useChat(matchedUserId: string) {
     } finally {
       setSending(false);
     }
-  }, [matchedUserId, addMessages]);
+  }, [socket, matchedUserId, addMessages]);
 
   // ── Aceptar cita ───────────────────────────────────────────────────────────
   const acceptDate = useCallback(async (matchId: string) => {

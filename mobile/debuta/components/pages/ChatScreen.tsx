@@ -5,6 +5,7 @@ import {
   TextInput, Image, ActivityIndicator,
   KeyboardAvoidingView, Platform, StatusBar,
   Keyboard, Pressable, Animated, Dimensions, ScrollView,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,7 @@ import { usePresence } from '../../hooks/usePresence';
 import { useCall } from '../../context/CallContext';
 import { lastSeenText } from '../utils/age';
 import { useTheme } from '../../theme/ThemeContext';
+import { api } from '../services/api';
 
 const { width: W } = Dimensions.get('window');
 const EMOJIS = ['😀','😂','🥰','😎','😭','👍','❤️','🔥','✨','💯','🎉','💬'];
@@ -327,6 +329,7 @@ export default function ChatScreen() {
   const listRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
   const { initiateCall } = useCall();
+  const [imageUploading, setImageUploading] = useState(false);
 
   // ── Keyboard listeners para Android ─────────────────────────────────────────
   useEffect(() => {
@@ -372,9 +375,28 @@ export default function ChatScreen() {
       allowsEditing: true,
     });
     if (!result.canceled && result.assets?.[0]) {
-      sendMessage(`[Foto compartida]\n${result.assets[0].uri}`).then(() => {
-        listRef.current?.scrollToEnd({ animated: true });
-      });
+      setImageUploading(true);
+      try {
+        const fileUri = result.assets[0].uri;
+        const fileName = fileUri.split('/').pop() || 'photo.jpg';
+        const fileType = fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        const res = await api.uploadFile<{ url: string }>(
+          '/chat/upload',
+          { uri: fileUri, name: fileName, type: fileType },
+          'photo'
+        );
+        if (res?.url) {
+          await sendMessage(`[Foto compartida]\n${res.url}`);
+          setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+        } else {
+          Alert.alert('Error', 'No se pudo subir la imagen.');
+        }
+      } catch (err) {
+        console.error('Error uploading chat image:', err);
+        Alert.alert('Error', 'Hubo un problema al subir la imagen.');
+      } finally {
+        setImageUploading(false);
+      }
     }
   };
 
@@ -515,9 +537,13 @@ export default function ChatScreen() {
           // Android: cuando el KAV en modo 'height' no se ajusta perfectamente
           marginBottom: Platform.OS === 'android' && keyboardHeight > 0 ? 0 : 0,
         }]}>
-          <TouchableOpacity onPress={handlePickImage} style={s.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="image-outline" size={24} color={colors.textDim} />
-          </TouchableOpacity>
+          {imageUploading ? (
+            <ActivityIndicator size="small" color={colors.primary} style={{ padding: 6, marginBottom: 4 }} />
+          ) : (
+            <TouchableOpacity onPress={handlePickImage} style={s.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="image-outline" size={24} color={colors.textDim} />
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity onPress={handleEmojiToggle} style={s.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name={showEmoji ? 'keypad-outline' : 'happy-outline'} size={24} color={showEmoji ? colors.primary : colors.textDim} />

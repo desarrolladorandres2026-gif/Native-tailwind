@@ -109,7 +109,6 @@ export const authService = {
    */
   async login(data: LoginData): Promise<AuthUser> {
     const response = await api.post<LoginResponse>('/login', data);
-    console.log('Login response:', JSON.stringify(response));
     await storeToken(response);
     return response.usuario;
   },
