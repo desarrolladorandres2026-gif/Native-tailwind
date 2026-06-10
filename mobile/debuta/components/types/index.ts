@@ -49,6 +49,7 @@ export interface Match {
   created_at: string;
   last_message?: Message;
   unread_count?: number;
+  streak?: number;
   recomendacion?: {
     asociadoId: string;
     estado: string;

@@ -129,6 +129,13 @@ class ApiClient {
     return res.data;
   }
 
+  async postForm<T = any>(path: string, formData: FormData): Promise<T> {
+    const res = await this.uploadClient.post<T>(path, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  }
+
   async uploadFile<T = any>(
     path: string,
     file: { uri: string; name: string; type: string },
