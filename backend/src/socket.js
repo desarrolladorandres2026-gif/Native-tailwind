@@ -18,6 +18,24 @@ const onlineUsers = new Map();
 const pendingCalls = new Map();
 const PENDING_CALL_TTL_MS = 60_000; // 60 segundos
 
+// ── Llamadas activas (o pendientes de aceptar) ────────────────────────────────
+// userId (string) → partnerUserId (string)  — entrada bidireccional
+const activeCalls = new Map();
+
+function registerCall(callerIdStr, receiverIdStr) {
+  activeCalls.set(callerIdStr, receiverIdStr);
+  activeCalls.set(receiverIdStr, callerIdStr);
+}
+
+function clearCall(aStr, bStr) {
+  activeCalls.delete(aStr);
+  activeCalls.delete(bStr);
+}
+
+function isCallParticipant(userIdStr, partnerIdStr) {
+  return activeCalls.get(userIdStr) === partnerIdStr || activeCalls.get(partnerIdStr) === userIdStr;
+}
+
 // ── Helper: generar día/hora sugerida ────────────────────────────────────────
 const getDiaSugerido = () => {
   const dias = ['Sábado', 'Viernes', 'Domingo'];
@@ -101,7 +119,7 @@ const initSocket = (server) => {
       socket.emit('presencia:respuesta', {
         userId,
         online: !!since,
-        lastSeen: since ?? null,
+        lastSeen: null, // el lastSeen real llega vía 'usuario:offline'
       });
     });
 
@@ -142,6 +160,21 @@ const initSocket = (server) => {
           .to(`user:${usuarioId}`)
           .emit('mensaje:nuevo', payload);
 
+        // ── Racha de conversación ─────────────────────────────────────────
+        const msgNow     = new Date();
+        const lastMsgDate = match.lastMessageDate;
+        if (!lastMsgDate || msgNow.toDateString() !== new Date(lastMsgDate).toDateString()) {
+          const gapHours = lastMsgDate ? (msgNow - new Date(lastMsgDate)) / 3_600_000 : 0;
+          match.streak      = gapHours > 48 ? 1 : (match.streak || 0) + 1;
+          match.bestStreak  = Math.max(match.bestStreak || 0, match.streak);
+          match.lastMessageDate = msgNow;
+          await match.save();
+          io.to(`user:${paraId}`).to(`user:${usuarioId}`).emit('streak:update', {
+            matchId: String(match._id),
+            streak:  match.streak,
+          });
+        }
+
         // ── Lógica de sugerencia de primera cita al 5to mensaje ───────────
         // Solo si no hay una recomendación activa ya
         if (!match.recomendacion?.restauranteId) {
@@ -180,6 +213,7 @@ const initSocket = (server) => {
               // Emitir sugerencia a ambos usuarios
               const sugerenciaPayload = {
                 matchId: String(match._id),
+                usuarios: [String(match.usuarios[0]), String(match.usuarios[1])],
                 restaurante: {
                   id: String(restaurante._id),
                   nombre: restaurante.nombre,
@@ -256,9 +290,12 @@ const initSocket = (server) => {
         return;
       }
 
-      // Resolver nombre/foto: primero del payload, luego del auth del socket
-      const resolvedName  = callerName  || socket.handshake.auth?.name  || 'Usuario';
-      const resolvedPhoto = callerPhoto || socket.handshake.auth?.photo || null;
+      // Registrar la llamada activa antes de emitirla
+      registerCall(String(usuarioId), String(paraId));
+
+      // Nombre y foto siempre del auth handshake verificado, nunca del payload
+      const resolvedName  = socket.handshake.auth?.name  || 'Usuario';
+      const resolvedPhoto = socket.handshake.auth?.photo || null;
 
       // Diagnóstico: ver cuántos sockets hay en la sala del receptor
       const roomName = `user:${paraId}`;
@@ -296,6 +333,10 @@ const initSocket = (server) => {
 
     // Cliente (receptor) emite: call:accept { paraId, signalData }
     socket.on('call:accept', ({ paraId, signalData }) => {
+      if (!isCallParticipant(String(usuarioId), String(paraId))) {
+        socket.emit('error', { message: 'No tienes una llamada activa con este usuario' });
+        return;
+      }
       console.log(`✅ Llamada aceptada por ${usuarioId} para ${paraId}`);
       io.to(`user:${paraId}`).emit('call:accepted', {
         signalData,
@@ -305,6 +346,8 @@ const initSocket = (server) => {
 
     // Cliente (receptor) emite: call:reject { paraId }
     socket.on('call:reject', ({ paraId }) => {
+      if (!isCallParticipant(String(usuarioId), String(paraId))) return;
+      clearCall(String(usuarioId), String(paraId));
       console.log(`❌ Llamada rechazada por ${usuarioId} para ${paraId}`);
       io.to(`user:${paraId}`).emit('call:rejected', { fromId: usuarioId });
     });
@@ -312,6 +355,7 @@ const initSocket = (server) => {
     // Cliente emite: call:signal { paraId, signalData }
     // Usado para intercambio de ICE candidates y re-negociación
     socket.on('call:signal', ({ paraId, signalData }) => {
+      if (!isCallParticipant(String(usuarioId), String(paraId))) return;
       io.to(`user:${paraId}`).emit('call:signal', {
         fromId: usuarioId,
         signalData
@@ -320,9 +364,11 @@ const initSocket = (server) => {
 
     // Cliente emite: call:end { paraId }
     socket.on('call:end', ({ paraId }) => {
+      if (!isCallParticipant(String(usuarioId), String(paraId))) return;
+      clearCall(String(usuarioId), String(paraId));
       console.log(`📵 Llamada terminada por ${usuarioId}`);
       io.to(`user:${paraId}`).emit('call:ended', { fromId: usuarioId });
-      
+
       // Limpiar llamadas pendientes si el llamante colgó antes de conectar
       const pending = pendingCalls.get(String(paraId));
       if (pending && String(pending.fromId) === String(usuarioId)) {
@@ -335,6 +381,7 @@ const initSocket = (server) => {
     // Cliente emite: call:audio-chunk { paraId, audioData (base64), chunkIndex }
     // Servidor re-emite al receptor: call:audio-chunk { fromId, audioData, chunkIndex }
     socket.on('call:audio-chunk', ({ paraId, audioData, chunkIndex }) => {
+      if (!isCallParticipant(String(usuarioId), String(paraId))) return;
       io.to(`user:${paraId}`).emit('call:audio-chunk', {
         fromId: usuarioId,
         audioData,
@@ -344,6 +391,9 @@ const initSocket = (server) => {
 
     // ── Cancelar llamada pendiente (llamante canceló antes de que el receptor se conecte) ──
     socket.on('call:cancel_pending', ({ paraId }) => {
+      if (isCallParticipant(String(usuarioId), String(paraId))) {
+        clearCall(String(usuarioId), String(paraId));
+      }
       if (pendingCalls.has(String(paraId))) {
         pendingCalls.delete(String(paraId));
         console.log(`🚫 [CALL] Llamada pendiente cancelada por ${usuarioId} para ${paraId}`);
@@ -354,6 +404,13 @@ const initSocket = (server) => {
     socket.on('disconnect', () => {
       console.log(`🔌 Desconectado: ${usuarioId}`);
       onlineUsers.delete(usuarioId);
+
+      // Limpiar llamada activa si el usuario se desconecta abruptamente
+      const callPartner = activeCalls.get(String(usuarioId));
+      if (callPartner) {
+        clearCall(String(usuarioId), callPartner);
+        io.to(`user:${callPartner}`).emit('call:ended', { fromId: usuarioId });
+      }
 
       // Notificar a todos con la hora de última conexión
       socket.broadcast.emit('usuario:offline', {

@@ -131,6 +131,7 @@ const usuarioSchema = new mongoose.Schema(
     photos: { type: [photoSchema], default: [] },
     interests: [interestSchema],                   // [{ name, icon }]
     is_verified: { type: Boolean, default: false },
+    faceDescriptor: { type: [Number], default: null, select: false },
 
     // ── Información personal extendida ───────────────────────────────────────
     job_title: { type: String, default: '', maxlength: 100 },   // Ej: "Diseñador UX"
@@ -173,6 +174,9 @@ const usuarioSchema = new mongoose.Schema(
     // ── Sistema ──────────────────────────────────────────────
     rol: { type: String, enum: ['user', 'admin', 'asociado'], default: 'user' },
     activo: { type: Boolean, default: true },
+
+    // ── Superlike ────────────────────────────────────────────
+    lastSuperlikeUsed: { type: Date, default: null },
 
     // ── Recuperación de contraseña ────────────────────────────
     resetPasswordCode: { type: String, default: null, select: false },  // código 6 dígitos (hasheado)

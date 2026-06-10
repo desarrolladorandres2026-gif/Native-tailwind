@@ -14,7 +14,7 @@ const matchSchema = new mongoose.Schema(
       {
         de: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario' },
         para: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario' },
-        tipo: { type: String, enum: ['like', 'dislike'], default: 'like' },
+        tipo: { type: String, enum: ['like', 'superlike', 'dislike'], default: 'like' },
         createdAt: { type: Date, default: Date.now },
       },
     ],
@@ -33,6 +33,11 @@ const matchSchema = new mongoose.Schema(
     // true cuando ambos se dieron like
     esMatch: { type: Boolean, default: false },
     fechaMatch: { type: Date },
+
+    // ── Racha de conversación ──────────────────────────────────────────────────
+    streak:          { type: Number, default: 0 },
+    bestStreak:      { type: Number, default: 0 },
+    lastMessageDate: { type: Date,   default: null },
   },
   { timestamps: true }
 );
