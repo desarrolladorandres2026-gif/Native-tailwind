@@ -8,13 +8,10 @@
 
 const Usuario = require('../models/usuario.model');
 const { uploadProfilePicture } = require('../helpers/cloudinary');
+const { detectFace, getFaceDescriptor, compareFaces } = require('../helpers/faceRecognition');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/**
- * Valida que el string es base64 con contenido mínimo.
- * Acepta con o sin prefijo data:image/...;base64,
- */
 const esBase64Valido = (str) => {
   if (!str || typeof str !== 'string') return false;
   const raw = str.startsWith('data:') ? str.split(',')[1] : str;
@@ -22,21 +19,11 @@ const esBase64Valido = (str) => {
   return /^[A-Za-z0-9+/=]+$/.test(raw.replace(/\s/g, ''));
 };
 
-/**
- * Extrae la parte raw del base64 (sin prefijo data:...).
- */
 const rawBase64 = (str) =>
   str.startsWith('data:') ? str.split(',')[1] : str;
 
-/**
- * Construye un data URL normalizado para guardar en DB.
- */
-const toDataUrl = (str) =>
-  str.startsWith('data:') ? str : `data:image/jpeg;base64,${str}`;
-
 // ── POST /api/facial/verify ───────────────────────────────────────────────────
 // Body: { image: string }  ← base64 con o sin prefijo
-// Usado en: RegisterScreen (antes de crear cuenta) y LoginScreen
 const verificarRostro = async (req, res) => {
   try {
     const { image } = req.body;
@@ -48,8 +35,7 @@ const verificarRostro = async (req, res) => {
       });
     }
 
-    // Detección de rostro: siempre aprobado (modo demo)
-    const hasFace = true;
+    const hasFace = await detectFace(image);
 
     if (!hasFace) {
       return res.json({
@@ -66,16 +52,11 @@ const verificarRostro = async (req, res) => {
 };
 
 // ── POST /api/facial/register ─────────────────────────────────────────────────
-// Guarda la foto facial como profile_picture.
-// Soporta dos modos:
-//   a) Con token (verificarToken middleware): usa req.usuario._id
-//   b) Sin token: recibe userId en el body (flujo de registro)
 // Body: { image: string, userId?: string }
 const guardarFotoFacial = async (req, res) => {
   try {
     const { image, userId } = req.body;
 
-    // Validar presencia y formato
     if (!esBase64Valido(image)) {
       return res.status(400).json({
         ok: false,
@@ -83,7 +64,6 @@ const guardarFotoFacial = async (req, res) => {
       });
     }
 
-    // Validar tamaño máximo (~10 MB en base64 = ~7.5 MB real)
     const base64Data = rawBase64(image);
     if (base64Data.length > 14_000_000) {
       return res.status(400).json({
@@ -92,7 +72,6 @@ const guardarFotoFacial = async (req, res) => {
       });
     }
 
-    // Resolver el ID del usuario
     const uid = req.usuario?._id || userId;
     if (!uid) {
       return res.status(400).json({
@@ -101,11 +80,28 @@ const guardarFotoFacial = async (req, res) => {
       });
     }
 
-    // Convertir base64 a buffer
+    // Detectar rostro ANTES de subir a Cloudinary
+    const hasFace = await detectFace(image);
+    if (!hasFace) {
+      return res.status(422).json({
+        ok: false,
+        message: 'No se detectó un rostro en la imagen. Asegúrate de que tu cara esté bien iluminada y centrada.',
+      });
+    }
+
+    // Extraer descriptor facial para comparaciones futuras
+    const descriptor = await getFaceDescriptor(image);
+    if (!descriptor) {
+      return res.status(422).json({
+        ok: false,
+        message: 'No se pudo procesar el rostro. Intenta con mejor iluminación.',
+      });
+    }
+
+    // Subir a Cloudinary
     const buffer = Buffer.from(base64Data, 'base64');
     console.log(`[facial] Subiendo foto para usuario ${uid} (${buffer.length} bytes)`);
 
-    // Subir a Cloudinary
     let cloudResult;
     try {
       cloudResult = await uploadProfilePicture(buffer, uid.toString());
@@ -124,6 +120,7 @@ const guardarFotoFacial = async (req, res) => {
       {
         profile_picture: { url, public_id },
         is_verified: true,
+        faceDescriptor: descriptor,
       },
       { new: true }
     );
@@ -146,8 +143,6 @@ const guardarFotoFacial = async (req, res) => {
 };
 
 // ── POST /api/facial/login-verify ─────────────────────────────────────────────
-// Compara el rostro enviado con el guardado en el perfil del usuario.
-// Permite un segundo factor de seguridad en el login.
 // Body: { correo: string, image: string }
 const verificarRostroLogin = async (req, res) => {
   try {
@@ -160,15 +155,16 @@ const verificarRostroLogin = async (req, res) => {
       });
     }
 
-    const usuario = await Usuario.findOne({ correo: correo.toLowerCase().trim() });
+    // Seleccionar faceDescriptor explícitamente (tiene select: false)
+    const usuario = await Usuario.findOne({ correo: correo.toLowerCase().trim() })
+      .select('+faceDescriptor');
 
     if (!usuario) {
-      // No revelar si el correo existe
       return res.json({ ok: false, message: 'No se pudo verificar el rostro' });
     }
 
-    // Si el usuario no tiene foto facial registrada, permitir pasar
-    if (!usuario.profile_picture) {
+    // Sin foto facial registrada → acceso permitido
+    if (!usuario.profile_picture || !usuario.faceDescriptor?.length) {
       return res.json({
         ok: true,
         message: 'Usuario sin foto facial registrada, acceso permitido',
@@ -176,8 +172,18 @@ const verificarRostroLogin = async (req, res) => {
       });
     }
 
-    // Comparación de rostros: siempre aprobado (modo demo)
-    const match = true;
+    // Extraer descriptor del rostro entrante
+    const incomingDescriptor = await getFaceDescriptor(image);
+    if (!incomingDescriptor) {
+      return res.json({
+        ok: false,
+        message: 'No se detectó un rostro en la imagen enviada. Asegúrate de buena iluminación.',
+      });
+    }
+
+    // Comparar descriptores
+    const { match, distance } = compareFaces(usuario.faceDescriptor, incomingDescriptor);
+    console.log(`[facial] Login ${correo} → distancia=${distance.toFixed(3)}, match=${match}`);
 
     if (!match) {
       return res.json({
