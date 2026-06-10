@@ -16,7 +16,10 @@ const BASE_DELAY = 3000; // 3 segundos
 
 async function connectWithRetry(attempt = 1) {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(process.env.MONGO_URI, {
+      serverSelectionTimeoutMS: 10000, // falla en 10s si Atlas no responde
+      socketTimeoutMS: 20000,          // cierra socket inactivo en 20s
+    });
     console.log('✅ MongoDB conectado');
     server.listen(PORT, '0.0.0.0', () =>
       console.log(`🚀 Servidor corriendo en http://0.0.0.0:${PORT}`)

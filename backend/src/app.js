@@ -47,6 +47,9 @@ app.use('/api/auth',     require('./routes/social.routes'));   // Auth social Go
 app.use('/api/password', require('./routes/password.routes')); // Recuperación de contraseña
 app.use('/api/soporte', require('./routes/soporte.routes'));   // Tickets de soporte
 
+// ─── ICE Servers para WebRTC (llamadas) ──────────────────────────────────────
+app.use('/api', require('./routes/ice.routes'));
+
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get('/health', (_, res) => res.json({ status: 'ok', timestamp: new Date() }));
 
