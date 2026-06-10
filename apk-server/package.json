@@ -1,0 +1,13 @@
+{
+  "name": "debuta-apk-server",
+  "version": "1.0.0",
+  "description": "Servidor local para distribuir el APK de Debuta via QR",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "qrcode": "^1.5.3"
+  }
+}
