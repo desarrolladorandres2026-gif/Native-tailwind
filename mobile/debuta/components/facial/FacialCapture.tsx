@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
+import { Eye, Camera } from 'lucide-react-native';
 
 interface Props {
   onCapture: (base64: string) => void;
@@ -84,7 +85,10 @@ export default function FacialCapture({ onCapture, onSkip, mode = 'register' }: 
   return (
     <View style={s.container}>
       <View style={s.header}>
-        <Text style={s.title}>{isLogin ? '👁  Identificación facial' : '📸  Captura de rostro'}</Text>
+        <View style={s.titleRow}>
+          {isLogin ? <Eye size={22} color="#FF6B8A" /> : <Camera size={22} color="#FF6B8A" />}
+          <Text style={s.title}>{isLogin ? 'Identificación facial' : 'Captura de rostro'}</Text>
+        </View>
         <Text style={s.subtitle}>
           {isLogin ? 'Mira a la cámara para iniciar sesión' : 'Centra tu cara dentro del óvalo y presiona el botón'}
         </Text>
@@ -147,7 +151,8 @@ const s = StyleSheet.create({
   container:      { flex: 1, backgroundColor: '#0B0F1A', paddingHorizontal: 24, paddingTop: 8 },
   center:         { flex: 1, backgroundColor: '#0B0F1A', alignItems: 'center', justifyContent: 'center', padding: 32, gap: 18 },
   header:         { marginBottom: 18, alignItems: 'center' },
-  title:          { color: '#fff', fontSize: 20, fontWeight: '800', textAlign: 'center', marginBottom: 6 },
+  titleRow:       { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  title:          { color: '#fff', fontSize: 20, fontWeight: '800' },
   subtitle:       { color: 'rgba(255,255,255,0.45)', fontSize: 14, textAlign: 'center', lineHeight: 20 },
   cameraWrap:     { height: 340, borderRadius: 22, overflow: 'hidden', backgroundColor: '#111', position: 'relative' },
   ovalOverlay:    { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
