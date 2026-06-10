@@ -4,7 +4,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, Image, ActivityIndicator,
   KeyboardAvoidingView, Platform, StatusBar,
-  Keyboard, Pressable, Animated, Dimensions, ScrollView,
+  Keyboard, Pressable, Animated,
   Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,11 +16,13 @@ import * as Haptics from 'expo-haptics';
 import { useChat, DateSuggestion } from '../../hooks/useChat';
 import { usePresence } from '../../hooks/usePresence';
 import { useCall } from '../../context/CallContext';
+import { useSocket } from '../../context/SocketContext';
+import { incrementMessagesSent, updateBestStreak } from '../profile/BadgesSection';
 import { lastSeenText } from '../utils/age';
 import { useTheme } from '../../theme/ThemeContext';
 import { api } from '../services/api';
+import { Sparkles, UtensilsCrossed, Flame } from 'lucide-react-native';
 
-const { width: W } = Dimensions.get('window');
 const EMOJIS = ['😀','😂','🥰','😎','😭','👍','❤️','🔥','✨','💯','🎉','💬'];
 
 // ── Tarjeta de Sugerencia de Primera Cita ──────────────────────────────────────
@@ -56,7 +58,12 @@ function DateSuggestionCard({
   const currentPhoto = allPhotos[photoIndex]?.url;
 
   const isAccepted = recomendacion.estado === 'aceptada';
-  const iAccepted = recomendacion.user1Acepta || recomendacion.user2Acepta; // simplified
+  const myPosition = suggestion.usuarios?.indexOf(myId ?? '') ?? -1;
+  const iAccepted = myPosition === 0
+    ? recomendacion.user1Acepta
+    : myPosition === 1
+      ? recomendacion.user2Acepta
+      : recomendacion.user1Acepta || recomendacion.user2Acepta;
 
   return (
     <Animated.View style={[
@@ -72,11 +79,11 @@ function DateSuggestionCard({
       >
         {/* ── Sparkle Header ─────────────────────────────────────────── */}
         <View style={s.dateHeader}>
-          <Text style={s.dateSparkle}>✨</Text>
+          <Sparkles size={18} color="#8B5CF6" />
           <Text style={[s.dateHeaderText, { color: colors.text }]}>
             ¡Sugerencia de Primera Cita!
           </Text>
-          <Text style={s.dateSparkle}>✨</Text>
+          <Sparkles size={18} color="#FD297B" />
         </View>
 
         {/* ── Mensaje personalizado ───────────────────────────────────── */}
@@ -181,7 +188,10 @@ function DateSuggestionCard({
           {/* ── Menú preview ──────────────────────────────────────── */}
           {restaurante.menu && restaurante.menu.length > 0 && (
             <View style={s.dateMenuSection}>
-              <Text style={[s.dateMenuTitle, { color: colors.textDim }]}>🍽️ Menú destacado</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+                <UtensilsCrossed size={12} color={colors.textDim} />
+                <Text style={[s.dateMenuTitle, { color: colors.textDim, marginBottom: 0 }]}>Menú destacado</Text>
+              </View>
               {restaurante.menu.map((plato, i) => (
                 <View key={i} style={s.dateMenuItem}>
                   <Text style={[s.dateMenuName, { color: colors.text }]}>{plato.nombre}</Text>
@@ -199,7 +209,7 @@ function DateSuggestionCard({
           <View style={[s.dateAcceptedBox, { backgroundColor: '#10B98115' }]}>
             <Ionicons name="checkmark-circle" size={22} color="#10B981" />
             <Text style={[s.dateAcceptedText, { color: '#10B981' }]}>
-              ¡Cita confirmada! 🎉 Ambos aceptaron
+              ¡Cita confirmada! Ambos aceptaron
             </Text>
           </View>
         ) : (
@@ -315,21 +325,43 @@ function MessageBubble({ msg, isMe, colors, isDark }: { msg: any; isMe: boolean;
 // ── Pantalla principal ─────────────────────────────────────────────────────────
 export default function ChatScreen() {
   const { colors, isDark } = useTheme();
-  const params = useLocalSearchParams<{ userId: string; name: string; photo: string }>();
-  const { userId, name, photo } = params;
+  const params = useLocalSearchParams<{ userId: string; name: string; photo: string; icebreaker?: string; streak?: string }>();
+  const { userId, name, photo, icebreaker, streak: streakParam } = params;
   const {
-    messages, loading, sending, sendMessage, myId,
-    dateSuggestion, dateLoading, acceptDate, rejectDate, requestNewPlace,
+    messages, loading, sending, sendMessage, myId, matchId,
+    dateSuggestion, dateLoading, acceptDate, requestNewPlace,
   } = useChat(userId);
   const { online, lastSeen } = usePresence(userId);
+  const { socket } = useSocket();
   const insets = useSafeAreaInsets();
-  const [input, setInput] = useState('');
+  const [input,  setInput]  = useState('');
+  const [streak, setStreak] = useState(Number(streakParam ?? 0));
   const [showEmoji, setShowEmoji] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const listRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
   const { initiateCall } = useCall();
   const [imageUploading, setImageUploading] = useState(false);
+
+  // Pre-fill input with icebreaker question if navigated from MatchModal
+  useEffect(() => {
+    if (icebreaker) setInput(icebreaker);
+  }, []);
+
+  // Escuchar actualizaciones de racha — solo de esta conversación
+  useEffect(() => {
+    if (!socket) return;
+    const handler = ({ matchId: updatedMatchId, streak: newStreak }: { matchId: string; streak: number }) => {
+      if (!matchId || updatedMatchId === matchId) setStreak(newStreak);
+    };
+    socket.on('streak:update', handler);
+    return () => { socket.off('streak:update', handler); };
+  }, [socket, matchId]);
+
+  // Actualizar mejor racha localmente cuando cambia
+  useEffect(() => {
+    if (streak > 0) updateBestStreak(streak);
+  }, [streak]);
 
   // ── Keyboard listeners para Android ─────────────────────────────────────────
   useEffect(() => {
@@ -366,11 +398,12 @@ export default function ChatScreen() {
     sendMessage(text).then(() => {
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
     });
+    incrementMessagesSent(); // conteo local para logros
   }, [input, sending, sendMessage]);
 
   const handlePickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       quality: 0.8,
       allowsEditing: true,
     });
@@ -457,7 +490,15 @@ export default function ChatScreen() {
               {online && <View style={[s.onlineDot, { backgroundColor: colors.success }]} />}
             </View>
             <View style={s.headerInfo}>
-              <Text style={[s.headerName, { color: colors.text }]} numberOfLines={1}>{name}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[s.headerName, { color: colors.text }]} numberOfLines={1}>{name}</Text>
+                {streak > 0 && (
+                  <View style={s.streakBadge}>
+                    <Flame size={10} color="#FF6B00" fill="#FF6B00" />
+                    <Text style={s.streakBadgeText}>{streak}</Text>
+                  </View>
+                )}
+              </View>
               <Text style={[s.headerStatus, { color: online ? colors.success : colors.textDim }]}>
                 {online ? '● En línea' : lastSeenText(false, lastSeen)}
               </Text>
@@ -563,9 +604,7 @@ export default function ChatScreen() {
               multiline
               maxLength={1000}
               onFocus={() => setShowEmoji(false)}
-              onSubmitEditing={() => handleSend()}
-              blurOnSubmit={false}
-              returnKeyType="send"
+              submitBehavior="newline"
             />
           </View>
 
@@ -616,6 +655,18 @@ const s = StyleSheet.create({
   headerInfo: { marginLeft: 10, flex: 1 },
   headerName: { fontSize: 17, fontWeight: '700', letterSpacing: -0.3 },
   headerStatus: { fontSize: 11, fontWeight: '500', marginTop: 1 },
+  streakBadge: {
+    backgroundColor:   'rgba(255,107,0,0.12)',
+    borderRadius:      10,
+    paddingHorizontal: 7,
+    paddingVertical:   2,
+    borderWidth:       1,
+    borderColor:       'rgba(255,107,0,0.30)',
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               3,
+  },
+  streakBadgeText: { fontSize: 11, fontWeight: '800', color: '#FF6B00' },
   headerActions: { flexDirection: 'row', gap: 8, marginLeft: 8 },
   callBtn: {
     width: 38, height: 38, borderRadius: 19,
@@ -645,7 +696,6 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, marginBottom: 12,
   },
-  dateSparkle: { fontSize: 18 },
   dateHeaderText: { fontSize: 17, fontWeight: '800', letterSpacing: -0.3 },
 
   dateMsgBox: {

@@ -179,8 +179,24 @@ const rechazarCita = async (req, res) => {
       return res.status(403).json({ message: 'No eres parte de este match' });
     }
 
+    if (!match.recomendacion?.restauranteId) {
+      return res.status(400).json({ message: 'No hay recomendación de cita activa' });
+    }
+
     match.recomendacion.estado = 'rechazada';
     await match.save();
+
+    // Notificar al otro usuario en tiempo real
+    try {
+      const io = getIO();
+      const otroId = match.usuarios.find(u => !u.equals(yoId));
+      io.to(`user:${String(otroId)}`).emit('cita:estado-actualizado', {
+        matchId: match._id,
+        recomendacion: match.recomendacion,
+      });
+    } catch (socketErr) {
+      console.warn('Socket rechazarCita skip:', socketErr.message);
+    }
 
     res.json({ message: 'Cita rechazada', recomendacion: match.recomendacion });
   } catch (err) {
@@ -232,6 +248,7 @@ const sugerirNuevoLugar = async (req, res) => {
       const io = getIO();
       const payload = {
         matchId: match._id,
+        usuarios: match.usuarios.map(String),
         restaurante: {
           id: nuevoRestaurante._id,
           nombre: nuevoRestaurante.nombre,
@@ -267,6 +284,89 @@ const sugerirNuevoLugar = async (req, res) => {
   }
 };
 
+
+// ── POST /api/matches/superlike/:targetId ───────────────────────────
+const SUPERLIKE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
+
+const darSuperLike = async (req, res) => {
+  try {
+    const yoId     = req.usuario._id;
+    const targetId = new mongoose.Types.ObjectId(req.params.targetId);
+
+    if (yoId.equals(targetId)) {
+      return res.status(400).json({ message: 'No puedes darte superlike a ti mismo' });
+    }
+
+    // Verificar cooldown semanal
+    const yo = await Usuario.findById(yoId).select('lastSuperlikeUsed');
+    if (yo?.lastSuperlikeUsed) {
+      const elapsed = Date.now() - new Date(yo.lastSuperlikeUsed).getTime();
+      if (elapsed < SUPERLIKE_COOLDOWN_MS) {
+        const diasRestantes = Math.ceil((SUPERLIKE_COOLDOWN_MS - elapsed) / (24 * 60 * 60 * 1000));
+        return res.status(429).json({
+          message: `Superlike disponible en ${diasRestantes} día${diasRestantes > 1 ? 's' : ''}`,
+          diasRestantes,
+        });
+      }
+    }
+
+    const ids   = [yoId, targetId].sort();
+    let   match = await Match.findOne({ usuarios: { $all: ids, $size: 2 } });
+
+    if (!match) {
+      match = await Match.create({
+        usuarios: ids,
+        likes:    [{ de: yoId, para: targetId, tipo: 'superlike' }],
+      });
+    } else {
+      const yaLikeo = match.likes.some(l => l.de.equals(yoId) && l.para.equals(targetId));
+      if (yaLikeo) {
+        return res.status(400).json({ message: 'Ya le diste like a este usuario' });
+      }
+
+      match.likes.push({ de: yoId, para: targetId, tipo: 'superlike' });
+
+      const hayMutuo = match.likes.some(l => l.de.equals(targetId) && l.para.equals(yoId));
+      if (hayMutuo) {
+        match.esMatch    = true;
+        match.fechaMatch = new Date();
+      }
+      await match.save();
+
+      try {
+        const io = getIO();
+        const yoData   = await Usuario.findById(yoId).select('first_name username profile_picture').lean();
+        const yoNombre = yoData?.first_name || yoData?.username || 'Alguien';
+        const yoFoto   = yoData?.profile_picture?.url || yoData?.profile_picture || null;
+
+        if (hayMutuo) {
+          const matchPayload = { matchId: match._id, fromId: String(yoId), fromName: yoNombre, fromPhoto: yoFoto };
+          io.to(`user:${String(targetId)}`).emit('match:nuevo', matchPayload);
+          io.to(`user:${String(yoId)}`).emit('match:nuevo', { ...matchPayload, fromId: String(targetId) });
+        } else {
+          io.to(`user:${String(targetId)}`).emit('superlike:recibido', {
+            fromId: String(yoId), fromName: yoNombre, fromPhoto: yoFoto,
+          });
+        }
+      } catch (socketErr) {
+        console.warn('Socket superlike skip:', socketErr.message);
+      }
+    }
+
+    // Registrar la fecha de uso
+    await Usuario.findByIdAndUpdate(yoId, { lastSuperlikeUsed: new Date() });
+
+    res.json({
+      esMatch: match.esMatch,
+      matchId: match._id,
+      recomendacion: match.recomendacion || null,
+      message: match.esMatch ? '🎉 ¡Es un match!' : '⭐ Superlike enviado',
+    });
+  } catch (err) {
+    console.error('darSuperLike:', err);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
 
 // ── POST /api/matches/dislike/:targetId ─────────────────────────────
 const darDislike = async (req, res) => {
@@ -326,9 +426,6 @@ const listarMatches = async (req, res) => {
         is_read: false,
       });
 
-      // Contar mensajes totales del match
-      const totalMensajes = await Mensaje.countDocuments({ matchId: m._id });
-
       return {
         id: m._id,
         matched_user: {
@@ -351,7 +448,7 @@ const listarMatches = async (req, res) => {
             }
           : null,
         unread_count: unreadCount,
-        total_mensajes: totalMensajes,
+        streak: m.streak || 0,
         created_at: m.fechaMatch || m.createdAt,
         recomendacion: m.recomendacion || null,
       };
@@ -366,4 +463,4 @@ const listarMatches = async (req, res) => {
   }
 };
 
-module.exports = { darLike, darDislike, listarMatches, aceptarCita, rechazarCita, sugerirNuevoLugar };
+module.exports = { darLike, darSuperLike, darDislike, listarMatches, aceptarCita, rechazarCita, sugerirNuevoLugar };

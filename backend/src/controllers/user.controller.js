@@ -44,8 +44,18 @@ const register = async (req, res) => {
     }
 
     const usernameBase = nombre.trim().toLowerCase().replace(/\s+/g, '_');
-    const suffix = Math.floor(Math.random() * 9000) + 1000;
-    const username = `${usernameBase}${suffix}`;
+    let username;
+    for (let intentos = 0; intentos < 5; intentos++) {
+      const suffix = Math.floor(Math.random() * 90000) + 10000;
+      const candidato = `${usernameBase}${suffix}`;
+      if (!(await Usuario.exists({ username: candidato }))) {
+        username = candidato;
+        break;
+      }
+    }
+    if (!username) {
+      return res.status(500).json({ message: 'No se pudo generar un username único. Intenta de nuevo.' });
+    }
 
     // Normalizar intereses: el frontend puede enviar strings o {name, icon}
     const interesesNorm = (intereses ?? []).map((i) =>

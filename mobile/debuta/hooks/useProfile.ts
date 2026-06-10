@@ -17,6 +17,7 @@ export interface UserProfile {
   last_name: string;
   bio: string;
   birth_date: string;
+  createdAt?: string;
   gender: string;
   latitude: number | null;
   longitude: number | null;

@@ -219,6 +219,8 @@ export default function RegisterScreen() {
         password,
         genero,
         fechaNacimiento: fechaNacimiento!.toISOString().split('T')[0],
+        ciudad: ciudad.trim(),
+        bio: biografia.trim(),
         intereses,
         buscando,
         facePhoto: fotoBase64 || undefined,

@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Socket } from 'socket.io-client';
 import { api } from '../components/services/api';
 import { Message } from '../components/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -22,6 +21,7 @@ export interface DateSuggestionRestaurant {
 
 export interface DateSuggestion {
   matchId: string;
+  usuarios?: string[];
   restaurante: DateSuggestionRestaurant;
   sugerencia: {
     fecha: string;
@@ -42,6 +42,7 @@ export function useChat(matchedUserId: string) {
   const [loading,  setLoading]  = useState(true);
   const [sending,  setSending]  = useState(false);
   const [myId,     setMyId]     = useState<string | null>(null);
+  const [matchId,  setMatchId]  = useState<string | null>(null);
 
   // ── Estado de sugerencia de cita ─────────────────────────────────────────
   const [dateSuggestion, setDateSuggestion] = useState<DateSuggestion | null>(null);
@@ -75,13 +76,15 @@ export function useChat(matchedUserId: string) {
   // ── Carga inicial de mensajes via HTTP ─────────────────────────────────────
   const fetchMessages = useCallback(async () => {
     try {
-      const data = await api.get<{ matchId: string; mensajes: Message[] }>(
+      const data = await api.get<{ matchId: string; mensajes: Message[]; recomendacion: DateSuggestion | null }>(
         `/chat/${matchedUserId}`
       );
       const msgs = Array.isArray(data.mensajes) ? data.mensajes : [];
-      // Reset completo al cargar inicial
       msgIds.current = new Set(msgs.map(m => m.id));
       setMessages(msgs);
+      if (data.matchId) setMatchId(String(data.matchId));
+      // Restaurar sugerencia de cita activa si existe (persiste entre sesiones)
+      if (data.recomendacion) setDateSuggestion(data.recomendacion);
     } catch (e) {
       console.error('Error fetching messages:', e);
     } finally {
@@ -205,7 +208,7 @@ export function useChat(matchedUserId: string) {
   const requestNewPlace = useCallback(async (matchId: string) => {
     setDateLoading(true);
     try {
-      const res = await api.post<{ restaurante: any; recomendacion: any }>(`/matches/${matchId}/suggest-new-place`, {});
+      await api.post(`/matches/${matchId}/suggest-new-place`, {});
       // El socket emitirá 'cita:nueva-sugerencia' a ambos, lo cual actualiza dateSuggestion
     } catch (e: any) {
       console.error('Error requesting new place:', e);
@@ -214,7 +217,7 @@ export function useChat(matchedUserId: string) {
   }, []);
 
   return {
-    messages, loading, sending, sendMessage, myId,
+    messages, loading, sending, sendMessage, myId, matchId,
     dateSuggestion, dateLoading, acceptDate, rejectDate, requestNewPlace,
   };
 }

@@ -15,6 +15,7 @@ import * as Haptics from 'expo-haptics';
 
 import { useProfile, UserProfile } from '../../hooks/useProfile';
 import FloatingHearts from '../ui/FloatingHearts';
+import BadgesSection from '../profile/BadgesSection';
 import { useTheme } from '../../theme/ThemeContext';
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -30,7 +31,7 @@ const BUSCANDO_OPTIONS = [
 export default function ProfileScreen() {
   const { colors, isDark } = useTheme();
   const {
-    profile, stats, loading, saving, fetchProfile,
+    profile, stats, loading, saving, completion, fetchProfile,
     updateProfile, uploadAvatar, uploadCoverPhoto,
     removeAvatar, removeCoverPhoto,
   } = useProfile();
@@ -44,10 +45,6 @@ export default function ProfileScreen() {
   
   // Animaciones
   const scrollY = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
 
   useEffect(() => {
     if (profile) {
@@ -246,12 +243,19 @@ export default function ProfileScreen() {
               }} 
               activeOpacity={0.9}
             >
-              <View style={[s.avatarRing, { backgroundColor: colors.card }]}>
-                <Image 
-                  source={{ uri: profile?.profile_picture?.url || 'https://via.placeholder.com/150' }} 
-                  style={s.avatar} 
-                />
-              </View>
+              <LinearGradient
+                colors={[colors.primary, colors.secondary, colors.tertiary]}
+                style={s.avatarGradientRing}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={[s.avatarInner, { backgroundColor: colors.card }]}>
+                  <Image
+                    source={{ uri: profile?.profile_picture?.url || 'https://via.placeholder.com/150' }}
+                    style={s.avatar}
+                  />
+                </View>
+              </LinearGradient>
               <TouchableOpacity style={s.editAvatarBadge} onPress={handlePickAvatar}>
                 <LinearGradient colors={[colors.primary, colors.secondary]} style={[s.editAvatarBadgeGradient, { borderColor: colors.card }]}>
                   <Ionicons name="camera" size={14} color="white" />
@@ -270,13 +274,19 @@ export default function ProfileScreen() {
 
           <View style={[s.statsRow, { backgroundColor: `${colors.text}05`, borderColor: `${colors.text}10` }]}>
             <View style={s.statItem}>
-              <Text style={[s.statValue, { color: colors.text }]}>{stats?.matches || 0}</Text>
+              <View style={s.statValueRow}>
+                <Ionicons name="heart" size={17} color={colors.primary} />
+                <Text style={[s.statValue, { color: colors.primary }]}>{stats?.matches || 0}</Text>
+              </View>
               <Text style={[s.statLabel, { color: colors.textLight }]}>Matches</Text>
             </View>
             <View style={[s.statDivider, { backgroundColor: `${colors.text}15` }]} />
             <View style={s.statItem}>
-              <Text style={[s.statValue, { color: colors.text }]}>{stats?.likesGiven || 0}</Text>
-              <Text style={[s.statLabel, { color: colors.textLight }]}>Likes</Text>
+              <View style={s.statValueRow}>
+                <Ionicons name="star" size={17} color={colors.secondary} />
+                <Text style={[s.statValue, { color: colors.secondary }]}>{stats?.likesGiven || 0}</Text>
+              </View>
+              <Text style={[s.statLabel, { color: colors.textLight }]}>Likes dados</Text>
             </View>
           </View>
 
@@ -362,6 +372,14 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* ── Logros / Badges ── */}
+        <BadgesSection
+          matchCount={stats.matches ?? 0}
+          profileCompletion={completion.percentage}
+          hasConfirmedDate={false}
+          createdAt={profile?.createdAt}
+        />
+
         <View style={{ height: 100 }} />
       </Animated.ScrollView>
 
@@ -437,7 +455,20 @@ const s = StyleSheet.create({
     marginBottom: 20,
   },
   avatarWrapper: { alignItems: 'center', marginTop: -75 },
-  avatarRing: { padding: 5, borderRadius: 65, shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 5 },
+  avatarGradientRing: {
+    padding:       3,
+    borderRadius:  67,
+    shadowColor:   '#8B5CF6',
+    shadowOffset:  { width: 0, height: 8 },
+    shadowOpacity: 0.45,
+    shadowRadius:  18,
+    elevation:     12,
+  },
+  avatarInner: {
+    padding:      5,
+    borderRadius: 64,
+    overflow:     'hidden',
+  },
   avatar: { width: 120, height: 120, borderRadius: 60 },
   editAvatarBadge: { position: 'absolute', bottom: 5, right: 5 },
   editAvatarBadgeGradient: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', borderWidth: 3 },
@@ -454,10 +485,11 @@ const s = StyleSheet.create({
     paddingVertical: 20,
     borderWidth: 1,
   },
-  statItem: { flex: 1, alignItems: 'center' },
-  statDivider: { width: 1, height: '50%', alignSelf: 'center' },
-  statValue: { fontSize: 24, fontWeight: '900' },
-  statLabel: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', marginTop: 3, letterSpacing: 1 },
+  statItem:     { flex: 1, alignItems: 'center' },
+  statValueRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  statDivider:  { width: 1, height: '50%', alignSelf: 'center' },
+  statValue:    { fontSize: 24, fontWeight: '900' },
+  statLabel:    { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', marginTop: 3, letterSpacing: 1 },
   
   section: { marginTop: 30 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },

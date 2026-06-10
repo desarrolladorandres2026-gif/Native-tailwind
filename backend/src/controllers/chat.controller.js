@@ -1,6 +1,7 @@
-const mongoose = require('mongoose');
-const Mensaje  = require('../models/mensaje.model');
-const Match    = require('../models/match.model');
+const mongoose    = require('mongoose');
+const Mensaje     = require('../models/mensaje.model');
+const Match       = require('../models/match.model');
+const Restaurante = require('../models/restaurante.model');
 const { uploadBuffer } = require('../helpers/cloudinary');
 
 // Verifica que haya match entre yoId y otroId
@@ -35,9 +36,37 @@ const obtenerMensajes = async (req, res) => {
       { is_read: true }
     );
 
+    // Incluir sugerencia de cita activa para que persista al reabrir el chat
+    let recomendacion = null;
+    if (match.recomendacion?.restauranteId && match.recomendacion.estado !== 'rechazada') {
+      const restaurante = await Restaurante.findById(match.recomendacion.restauranteId).lean();
+      if (restaurante) {
+        recomendacion = {
+          matchId:  String(match._id),
+          usuarios: match.usuarios.map(u => String(u)),
+          restaurante: {
+            id:             String(restaurante._id),
+            nombre:         restaurante.nombre,
+            descripcion:    restaurante.descripcion    || '',
+            categoria:      restaurante.categoria      || '',
+            ambiente:       restaurante.ambiente       || '',
+            direccion:      restaurante.direccion      || '',
+            foto_portada:   restaurante.foto_portada   || null,
+            fotos:          (restaurante.fotos         || []).slice(0, 5),
+            precio_promedio: restaurante.precio_promedio || '',
+            horario:        restaurante.horario        || '',
+            menu:           (restaurante.menu          || []).slice(0, 3),
+          },
+          sugerencia:    { fecha: match.recomendacion.fechaSugerida },
+          recomendacion: match.recomendacion,
+        };
+      }
+    }
+
     res.json({
-      matchId:  match._id,
-      mensajes: mensajes.map(m => m.toJSON()),  // toJSON aplica el transform con created_at
+      matchId:      match._id,
+      mensajes:     mensajes.map(m => m.toJSON()),
+      recomendacion,
     });
   } catch (err) {
     console.error('obtenerMensajes:', err);
