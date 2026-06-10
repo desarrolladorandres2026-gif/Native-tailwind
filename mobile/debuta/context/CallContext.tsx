@@ -176,9 +176,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
       setIsOutgoing(false);
 
-      // Navegar a la pantalla de llamada activa (llamante)
+      // Reemplazar la pantalla "llamando..." con la pantalla activa
       try {
-        router.push({
+        router.replace({
           pathname: '/call',
           params: {
             userId:  data.answererId,
@@ -361,7 +361,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
       }
     }
-  }, [socket, playRingtone, stopRingtone, createOffer, fullCleanup]);
+  }, [socket, playRingtone, stopRingtone, createOffer, fullCleanup, endCall]);
 
   // ── Aceptar llamada entrante ───────────────────────────────────────────
   const acceptCall = useCallback(async () => {

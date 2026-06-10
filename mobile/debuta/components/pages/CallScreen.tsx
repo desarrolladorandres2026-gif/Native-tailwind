@@ -48,7 +48,7 @@ export default function CallScreen() {
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeaker, setIsSpeaker] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
-  const [isConnected, setIsConnected] = useState(type === 'active');
+  const [isConnected, setIsConnected] = useState(false);
 
   // Detectar cuando el stream remoto llega → llamada conectada
   useEffect(() => {

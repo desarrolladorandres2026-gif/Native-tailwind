@@ -7,6 +7,7 @@ import { useRef, useCallback, useState, useEffect } from 'react';
 import { Platform, Alert, Linking } from 'react-native';
 import Constants from 'expo-constants';
 import type { Socket } from 'socket.io-client';
+import { api } from '../components/services/api';
 
 // Detectar si estamos corriendo en Expo Go
 const IS_EXPO_GO = Constants.executionEnvironment === 'storeClient';
@@ -14,35 +15,36 @@ const IS_EXPO_GO = Constants.executionEnvironment === 'storeClient';
 // Tipos locales para no depender de react-native-webrtc en Expo Go
 export type WebRTCStream = any;
 
-// ── Servidores STUN/TURN ─────────────────────────────────────────────────────
-// openrelay.metered.ca es gratuito pero no confiable para producción.
-// Regístrate en https://metered.ca para obtener credenciales propias.
-const RTC_CONFIG = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    {
-      urls: 'turn:openrelay.metered.ca:80',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
-    {
-      urls: 'turn:openrelay.metered.ca:443',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
-    {
-      urls: 'turns:openrelay.metered.ca:443',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
-  ],
+// ── Configuración base del PeerConnection (sin iceServers — vienen del backend) ─
+const RTC_CONFIG_BASE = {
   iceCandidatePoolSize: 10,
-  bundlePolicy: 'max-bundle' as RTCBundlePolicy,
-  rtcpMuxPolicy: 'require' as RTCRtcpMuxPolicy,
+  bundlePolicy:  'max-bundle'  as RTCBundlePolicy,
+  rtcpMuxPolicy: 'require'     as RTCRtcpMuxPolicy,
 };
+
+// Servidores ICE de respaldo (si el backend no responde)
+const ICE_SERVERS_FALLBACK = [
+  { urls: 'stun:stun.l.google.com:19302'  },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
+  {
+    urls:       'turn:openrelay.metered.ca:80',
+    username:   'openrelayproject',
+    credential: 'openrelayproject',
+  },
+  {
+    urls:       'turn:openrelay.metered.ca:443',
+    username:   'openrelayproject',
+    credential: 'openrelayproject',
+  },
+  {
+    urls:       'turns:openrelay.metered.ca:443',
+    username:   'openrelayproject',
+    credential: 'openrelayproject',
+  },
+];
 
 // ── Solicitar permisos de cámara y micrófono ─────────────────────────────────
 export async function requestMediaPermissions(isVideo: boolean): Promise<boolean> {
@@ -59,16 +61,15 @@ export async function requestMediaPermissions(isVideo: boolean): Promise<boolean
         permissions as any
       );
 
-      const audioGranted = results[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === PermissionsAndroid.RESULTS.GRANTED;
+      const audioGranted  = results[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === PermissionsAndroid.RESULTS.GRANTED;
       const cameraGranted = !isVideo || results[PermissionsAndroid.PERMISSIONS.CAMERA] === PermissionsAndroid.RESULTS.GRANTED;
 
       if (!audioGranted || !cameraGranted) {
         const denied: string[] = [];
-        if (!audioGranted) denied.push('micrófono');
+        if (!audioGranted)  denied.push('micrófono');
         if (!cameraGranted) denied.push('cámara');
 
-        // Verificar si el usuario marcó "No volver a preguntar"
-        const audioNeverAsk = results[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN;
+        const audioNeverAsk  = results[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN;
         const cameraNeverAsk = isVideo && results[PermissionsAndroid.PERMISSIONS.CAMERA] === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN;
 
         if (audioNeverAsk || cameraNeverAsk) {
@@ -78,10 +79,7 @@ export async function requestMediaPermissions(isVideo: boolean): Promise<boolean
             'Por favor, ve a Configuración de la app y habilita los permisos manualmente.',
             [
               { text: 'Cancelar', style: 'cancel' },
-              {
-                text: 'Abrir Configuración',
-                onPress: () => Linking.openSettings(),
-              },
+              { text: 'Abrir Configuración', onPress: () => Linking.openSettings() },
             ]
           );
         } else {
@@ -103,22 +101,14 @@ export async function requestMediaPermissions(isVideo: boolean): Promise<boolean
   }
 
   // iOS: los permisos se solicitan automáticamente al usar getUserMedia
-  // gracias a las claves NSCameraUsageDescription y NSMicrophoneUsageDescription en app.json
   return true;
 }
 
 // ── Implementación stub para Expo Go (sin audio real) ───────────────────────
-// expo-av requiere el módulo nativo ExponentAV, que NO está disponible en Expo Go.
-// Esta implementación stub evita el crash y muestra un aviso al usuario.
-function useWebRTCExpoGo(socket: Socket | null) {
-  const [localStream, setLocalStream]   = useState<WebRTCStream | null>(null);
+function useWebRTCExpoGo(_socket: Socket | null) {
+  const [localStream,  setLocalStream]  = useState<WebRTCStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<WebRTCStream | null>(null);
-  const [isConnected, setIsConnected]   = useState(false);
-
-  const socketRef   = useRef<Socket | null>(null);
-  const toIdRef     = useRef<string>('');
-
-  useEffect(() => { socketRef.current = socket; }, [socket]);
+  const [isConnected,  setIsConnected]  = useState(false);
 
   useEffect(() => {
     console.warn(
@@ -127,9 +117,7 @@ function useWebRTCExpoGo(socket: Socket | null) {
     );
   }, []);
 
-  const createOffer = useCallback(async (toId: string, _isVideo: boolean) => {
-    toIdRef.current = toId;
-    setLocalStream({ active: false, type: 'stub' });
+  const createOffer = useCallback(async (_toId: string, _isVideo: boolean) => {
     Alert.alert(
       'Expo Go – Sin audio',
       'Las llamadas en tiempo real no están disponibles en Expo Go. ' +
@@ -139,45 +127,23 @@ function useWebRTCExpoGo(socket: Socket | null) {
     return { type: 'offer', sdp: `expo-go-stub:${Date.now()}` };
   }, []);
 
-  const createAnswer = useCallback(async (toId: string, _offerSdp: any, _isVideo: boolean) => {
-    toIdRef.current = toId;
+  const createAnswer = useCallback(async (_toId: string, _offerSdp: any, _isVideo: boolean) => {
     setLocalStream({ active: false, type: 'stub' });
     return { type: 'answer', sdp: `expo-go-stub-answer:${Date.now()}` };
   }, []);
 
-  const setRemoteAnswer = useCallback(async (_answerSdp: any) => {
-    setIsConnected(false);
-  }, []);
-
-  const addIceCandidate = useCallback(async (_candidate: any) => {}, []);
-
-  const toggleMute = useCallback((_muted: boolean) => {
-    console.log('🎤 [ExpoGo-Stub] toggleMute – sin efecto en Expo Go');
-  }, []);
-
-  const toggleCamera = useCallback((_off: boolean) => {
-    console.log('📷 [ExpoGo-Stub] toggleCamera – sin efecto en Expo Go');
-  }, []);
+  const setRemoteAnswer  = useCallback(async (_answerSdp: any) => { setIsConnected(false); }, []);
+  const addIceCandidate  = useCallback(async (_candidate: any) => {}, []);
+  const toggleMute       = useCallback((_muted: boolean) => {}, []);
+  const toggleCamera     = useCallback((_off: boolean) => {}, []);
 
   const cleanup = useCallback(() => {
     setLocalStream(null);
     setRemoteStream(null);
     setIsConnected(false);
-    toIdRef.current = '';
   }, []);
 
-  return {
-    localStream,
-    remoteStream,
-    isConnected,
-    createOffer,
-    createAnswer,
-    setRemoteAnswer,
-    addIceCandidate,
-    toggleMute,
-    toggleCamera,
-    cleanup,
-  };
+  return { localStream, remoteStream, isConnected, createOffer, createAnswer, setRemoteAnswer, addIceCandidate, toggleMute, toggleCamera, cleanup };
 }
 
 // ── Hook real (solo para builds nativos) ─────────────────────────────────────
@@ -204,35 +170,41 @@ function useWebRTCNative(socket: Socket | null) {
   const remoteDescSet      = useRef(false);
   const socketRef          = useRef<Socket | null>(null);
   const localStreamRef     = useRef<any>(null);
+  // ICE servers obtenidos del backend — se actualizan antes de cada llamada
+  const iceServersRef      = useRef<any[]>(ICE_SERVERS_FALLBACK);
 
-  // Mantener socketRef actualizado sin re-crear callbacks
-  useEffect(() => {
-    socketRef.current = socket;
-  }, [socket]);
+  useEffect(() => { socketRef.current = socket; }, [socket]);
 
   const [localStream,  setLocalStream]  = useState<WebRTCStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<WebRTCStream | null>(null);
   const [isConnected,  setIsConnected]  = useState(false);
 
   useEffect(() => {
-    if (__DEV__) {
-      console.log('🚀 [WebRTC] Hook nativo iniciado. Socket:', socket?.id ?? 'null');
-    }
-    return () => {
-      if (__DEV__) console.log('🧹 [WebRTC] Hook desmontado');
-    };
+    if (__DEV__) console.log('🚀 [WebRTC] Hook nativo iniciado. Socket:', socket?.id ?? 'null');
+    return () => { if (__DEV__) console.log('🧹 [WebRTC] Hook desmontado'); };
   }, []);
 
-  // ── Obtener acceso al micrófono y cámara ────────────────────────────────
+  // ── Obtener ICE servers frescos del backend ──────────────────────────────
+  const fetchIceServers = async (): Promise<any[]> => {
+    try {
+      const data = await api.get<{ iceServers: any[] }>('/ice-servers');
+      if (Array.isArray(data.iceServers) && data.iceServers.length > 0) {
+        console.log(`✅ [WebRTC] ICE servers del backend: ${data.iceServers.length} servidor(es)`);
+        return data.iceServers;
+      }
+    } catch (e: any) {
+      console.warn('⚠️ [WebRTC] Error al obtener ICE servers, usando fallback:', e?.message);
+    }
+    console.log(`⚠️ [WebRTC] Usando ${ICE_SERVERS_FALLBACK.length} ICE servers de respaldo`);
+    return ICE_SERVERS_FALLBACK;
+  };
+
+  // ── Acceso al micrófono y cámara ────────────────────────────────────────
   const getLocalStream = async (isVideo: boolean): Promise<any> => {
     try {
       console.log('🎤 [WebRTC] Solicitando getUserMedia... isVideo:', isVideo);
       const stream = await mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl:  true,
-        },
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         video: isVideo
           ? { facingMode: 'user', width: 640, height: 480, frameRate: 30 }
           : false,
@@ -262,14 +234,13 @@ function useWebRTCNative(socket: Socket | null) {
     for (const c of pending) {
       try {
         await pc.addIceCandidate(new RTCIceCandidate(c));
-        console.log('🧊 [WebRTC] ICE candidate del buffer aplicado');
       } catch (e) {
         console.warn('⚠️ [WebRTC] Error aplicando ICE del buffer:', e);
       }
     }
   };
 
-  // ── Crear PeerConnection con todos los callbacks ─────────────────────────
+  // ── Crear PeerConnection con ICE servers actuales ─────────────────────────
   const createPC = (toId: string): any => {
     if (pcRef.current) {
       console.log('🔧 [WebRTC] Cerrando PeerConnection anterior...');
@@ -280,29 +251,29 @@ function useWebRTCNative(socket: Socket | null) {
     remoteDescSet.current      = false;
     toIdRef.current            = toId;
 
-    const pc = new RTCPeerConnection(RTC_CONFIG);
+    const pc = new RTCPeerConnection({
+      ...RTC_CONFIG_BASE,
+      iceServers: iceServersRef.current,
+    });
 
-    // ── ICE candidate local generado → enviar al otro lado ───────────────
     pc.onicecandidate = (event: any) => {
       if (event.candidate) {
-        console.log('🧊 [WebRTC] ICE candidate local generado:', event.candidate.type, event.candidate.protocol);
+        console.log('🧊 [WebRTC] ICE candidate local:', event.candidate.type, event.candidate.protocol);
         socketRef.current?.emit('call:signal', {
           paraId:     toId,
           signalData: { type: 'ice', candidate: event.candidate.toJSON() },
         });
       } else {
-        console.log('🧊 [WebRTC] ICE gathering completo (null candidate)');
+        console.log('🧊 [WebRTC] ICE gathering completo');
       }
     };
 
-    // ── Estado de la conexión ICE ─────────────────────────────────────────
     pc.oniceconnectionstatechange = () => {
       const state = pc.iceConnectionState;
       console.log('🔗 [WebRTC] ICE connection state:', state);
-
       if (state === 'connected' || state === 'completed') {
         setIsConnected(true);
-        console.log('✅ [WebRTC] ¡Conexión ICE establecida! El audio/video debería fluir.');
+        console.log('✅ [WebRTC] Conexión establecida. El audio/video debería fluir.');
       } else if (state === 'disconnected') {
         console.warn('⚠️ [WebRTC] ICE desconectado temporalmente...');
         setIsConnected(false);
@@ -315,34 +286,23 @@ function useWebRTCNative(socket: Socket | null) {
       }
     };
 
-    // ── Estado de gathering ICE ───────────────────────────────────────────
     pc.onicegatheringstatechange = () => {
       console.log('🧊 [WebRTC] ICE gathering state:', pc.iceGatheringState);
     };
 
-    // ── Estado de señalización ────────────────────────────────────────────
     pc.onsignalingstatechange = () => {
       console.log('📡 [WebRTC] Signaling state:', pc.signalingState);
     };
 
-    // ── Track remoto recibido → AQUÍ se obtiene el audio/video del otro ──
     pc.ontrack = (event: any) => {
       console.log('📡 [WebRTC] ontrack recibido:', {
-        kind:         event.track.kind,
-        enabled:      event.track.enabled,
-        readyState:   event.track.readyState,
-        streamsCount: event.streams?.length ?? 0,
+        kind: event.track.kind, enabled: event.track.enabled,
+        readyState: event.track.readyState, streams: event.streams?.length ?? 0,
       });
-
-      // Asegurarse de que el track esté habilitado
       event.track.enabled = true;
-
       if (event.streams && event.streams[0]) {
-        console.log('✅ [WebRTC] Usando stream remoto del evento. ID:', event.streams[0].id);
         setRemoteStream(event.streams[0]);
       } else {
-        // Construir el stream manualmente si no viene en el evento
-        console.log('⚠️ [WebRTC] Sin streams en el evento, construyendo manualmente...');
         setRemoteStream((prev: any) => {
           const stream = prev ?? new MediaStream(undefined);
           stream.addTrack(event.track);
@@ -352,7 +312,7 @@ function useWebRTCNative(socket: Socket | null) {
     };
 
     pcRef.current = pc;
-    console.log('🔧 [WebRTC] PeerConnection creada para:', toId);
+    console.log('🔧 [WebRTC] PeerConnection creada para:', toId, `| ICE servers: ${iceServersRef.current.length}`);
     return pc;
   };
 
@@ -361,11 +321,13 @@ function useWebRTCNative(socket: Socket | null) {
     try {
       console.log('📤 [WebRTC] === INICIO createOffer ===');
 
-      // Iniciar InCallManager
+      // 1. Obtener ICE servers frescos del backend
+      iceServersRef.current = await fetchIceServers();
+
+      // 2. Iniciar InCallManager
       try {
         InCallManager?.start({ media: isVideo ? 'video' : 'audio' });
         InCallManager?.setForceSpeakerphoneOn(isVideo);
-        console.log('🔊 [WebRTC] InCallManager iniciado');
       } catch (e) {
         console.warn('⚠️ [WebRTC] InCallManager.start falló:', e);
       }
@@ -374,7 +336,7 @@ function useWebRTCNative(socket: Socket | null) {
       const pc     = createPC(toId);
 
       stream.getTracks().forEach((track: any) => {
-        console.log(`➕ [WebRTC] addTrack al PC (caller): ${track.kind}`);
+        console.log(`➕ [WebRTC] addTrack (caller): ${track.kind}`);
         pc.addTrack(track, stream);
       });
 
@@ -384,10 +346,7 @@ function useWebRTCNative(socket: Socket | null) {
       });
       await pc.setLocalDescription(offer);
 
-      console.log('📤 [WebRTC] Oferta creada:', {
-        type:      offer.type,
-        sdpLength: offer.sdp?.length,
-      });
+      console.log('📤 [WebRTC] Oferta creada. sdpLength:', offer.sdp?.length);
       return offer;
     } catch (e: any) {
       console.error('❌ [WebRTC] Error en createOffer:', e?.message ?? e);
@@ -395,26 +354,22 @@ function useWebRTCNative(socket: Socket | null) {
     }
   }, []);
 
-  // ── RECEPTOR: crear respuesta SDP a partir de la oferta ─────────────────
+  // ── RECEPTOR: crear respuesta SDP ───────────────────────────────────────
   const createAnswer = useCallback(async (toId: string, offerSdp: any, isVideo: boolean) => {
     try {
       console.log('📥 [WebRTC] === INICIO createAnswer ===');
-      console.log('📥 [WebRTC] offerSdp recibido:', {
-        type:      offerSdp?.type,
-        hasSdp:    !!offerSdp?.sdp,
-        sdpLength: offerSdp?.sdp?.length,
-      });
 
-      // Validar que la oferta SDP es válida
       if (!offerSdp?.sdp || offerSdp?.type !== 'offer') {
         throw new Error(`signalData inválido: type=${offerSdp?.type}, hasSdp=${!!offerSdp?.sdp}`);
       }
 
-      // Iniciar InCallManager
+      // 1. Obtener ICE servers frescos del backend
+      iceServersRef.current = await fetchIceServers();
+
+      // 2. Iniciar InCallManager
       try {
         InCallManager?.start({ media: isVideo ? 'video' : 'audio' });
         InCallManager?.setForceSpeakerphoneOn(isVideo);
-        console.log('🔊 [WebRTC] InCallManager iniciado');
       } catch (e) {
         console.warn('⚠️ [WebRTC] InCallManager.start falló:', e);
       }
@@ -423,25 +378,20 @@ function useWebRTCNative(socket: Socket | null) {
       const pc     = createPC(toId);
 
       stream.getTracks().forEach((track: any) => {
-        console.log(`➕ [WebRTC] addTrack al PC (callee): ${track.kind}`);
+        console.log(`➕ [WebRTC] addTrack (callee): ${track.kind}`);
         pc.addTrack(track, stream);
       });
 
-      // Establecer la descripción remota (oferta del llamante)
       await pc.setRemoteDescription(new RTCSessionDescription(offerSdp));
       remoteDescSet.current = true;
       console.log('📥 [WebRTC] RemoteDescription (offer) establecida. Signaling:', pc.signalingState);
 
-      // Aplicar ICE candidates que llegaron antes de la oferta
       await flushIceCandidates(pc);
 
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
-      console.log('📥 [WebRTC] Respuesta creada:', {
-        type:      answer.type,
-        sdpLength: answer.sdp?.length,
-      });
+      console.log('📥 [WebRTC] Respuesta creada. sdpLength:', answer.sdp?.length);
       return answer;
     } catch (e: any) {
       console.error('❌ [WebRTC] Error en createAnswer:', e?.message ?? e);
@@ -452,49 +402,33 @@ function useWebRTCNative(socket: Socket | null) {
   // ── LLAMANTE: establecer la respuesta del receptor ──────────────────────
   const setRemoteAnswer = useCallback(async (answerSdp: any) => {
     const pc = pcRef.current;
-    if (!pc) {
-      console.warn('⚠️ [WebRTC] setRemoteAnswer: no hay PeerConnection');
-      return;
-    }
+    if (!pc) { console.warn('⚠️ [WebRTC] setRemoteAnswer: no hay PeerConnection'); return; }
     try {
-      console.log('✅ [WebRTC] setRemoteAnswer recibido:', {
-        type:      answerSdp?.type,
-        hasSdp:    !!answerSdp?.sdp,
-        sdpLength: answerSdp?.sdp?.length,
-      });
-
-      // Solo aplicar si aún no tiene remote description
       if (pc.remoteDescription?.type) {
         console.warn('⚠️ [WebRTC] RemoteDescription ya establecida, ignorando duplicado');
         return;
       }
-
       await pc.setRemoteDescription(new RTCSessionDescription(answerSdp));
       remoteDescSet.current = true;
-      console.log('✅ [WebRTC] Answer establecido. Signaling state:', pc.signalingState);
-
-      // Aplicar ICE candidates pendientes
+      console.log('✅ [WebRTC] Answer establecido. Signaling:', pc.signalingState);
       await flushIceCandidates(pc);
     } catch (e: any) {
       console.error('❌ [WebRTC] Error en setRemoteAnswer:', e?.message ?? e);
     }
   }, []);
 
-  // ── Agregar candidato ICE recibido del otro lado ─────────────────────────
+  // ── Agregar candidato ICE recibido ──────────────────────────────────────
   const addIceCandidate = useCallback(async (candidate: any) => {
     const pc = pcRef.current;
-    if (!pc) {
-      console.log('📦 [WebRTC] addIceCandidate: no hay PC aún, descartando');
-      return;
-    }
+    if (!pc) { console.log('📦 [WebRTC] No hay PC, descartando ICE'); return; }
     try {
       if (!remoteDescSet.current || !pc.remoteDescription?.type) {
-        console.log('📦 [WebRTC] Bufferizando ICE candidate (sin remoteDescription aún)');
+        console.log('📦 [WebRTC] Bufferizando ICE candidate (sin remoteDesc aún)');
         iceCandidateBuffer.current.push(candidate);
         return;
       }
       await pc.addIceCandidate(new RTCIceCandidate(candidate));
-      console.log('🧊 [WebRTC] ICE candidate aplicado directamente');
+      console.log('🧊 [WebRTC] ICE candidate aplicado');
     } catch (e: any) {
       console.error('❌ [WebRTC] Error en addIceCandidate:', e?.message ?? e);
     }
@@ -518,21 +452,14 @@ function useWebRTCNative(socket: Socket | null) {
   // ── Limpiar todo al colgar ───────────────────────────────────────────────
   const cleanup = useCallback(() => {
     console.log('🧹 [WebRTC] Limpiando PeerConnection y streams...');
-
-    try {
-      InCallManager?.stop();
-      console.log('🔊 [WebRTC] InCallManager detenido');
-    } catch {}
+    try { InCallManager?.stop(); } catch {}
 
     localStreamRef.current?.getTracks().forEach((track: any) => {
       track.stop();
       console.log(`🧹 [WebRTC] Track detenido: ${track.kind}`);
     });
 
-    if (pcRef.current) {
-      pcRef.current.close();
-      pcRef.current = null;
-    }
+    if (pcRef.current) { pcRef.current.close(); pcRef.current = null; }
 
     remoteDescSet.current      = false;
     iceCandidateBuffer.current = [];
@@ -543,18 +470,7 @@ function useWebRTCNative(socket: Socket | null) {
     console.log('🧹 [WebRTC] Limpieza completa');
   }, []);
 
-  return {
-    localStream,
-    remoteStream,
-    isConnected,
-    createOffer,
-    createAnswer,
-    setRemoteAnswer,
-    addIceCandidate,
-    toggleMute,
-    toggleCamera,
-    cleanup,
-  };
+  return { localStream, remoteStream, isConnected, createOffer, createAnswer, setRemoteAnswer, addIceCandidate, toggleMute, toggleCamera, cleanup };
 }
 
 // ── Export principal ──────────────────────────────────────────────────────────
