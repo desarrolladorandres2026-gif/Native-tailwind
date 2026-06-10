@@ -8,6 +8,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../theme/ThemeContext';
 import { Settings } from '../../hooks/useSettings';
+import {
+  Sparkles, Handshake, Heart, Gem, Waves, HelpCircle,
+  Music, Plane, Trophy, Film, ChefHat, Palette, Laptop,
+  BookOpen, Gamepad2, Camera, PersonStanding, Leaf,
+  Dumbbell, Shirt, Radio, PawPrint,
+  MapPin, Cake, User, MessageCircle, Star,
+} from 'lucide-react-native';
 
 // ─── Datos constantes ─────────────────────────────────────────────────────────
 
@@ -18,38 +25,38 @@ const GENDER_OPTS = [
 ] as const;
 
 const LOOKING_FOR_OPTS = [
-  { value: 'ALL',      label: 'Cualquier cosa', emoji: '✨' },
-  { value: 'amistad',  label: 'Amistad',        emoji: '🤝' },
-  { value: 'citas',    label: 'Citas',           emoji: '💑' },
-  { value: 'serio',    label: 'Relación seria',  emoji: '💍' },
-  { value: 'casual',   label: 'Casual',          emoji: '🌊' },
-  { value: 'no_lo_se', label: 'Aún no lo sé',   emoji: '🤷' },
+  { value: 'ALL',      label: 'Cualquier cosa', Icon: Sparkles  },
+  { value: 'amistad',  label: 'Amistad',        Icon: Handshake },
+  { value: 'citas',    label: 'Citas',           Icon: Heart     },
+  { value: 'serio',    label: 'Relación seria',  Icon: Gem       },
+  { value: 'casual',   label: 'Casual',          Icon: Waves     },
+  { value: 'no_lo_se', label: 'Aún no lo sé',   Icon: HelpCircle },
 ] as const;
 
 const INTERESTS_LIST = [
-  { name: 'Música',       icon: '🎵' },
-  { name: 'Viajes',       icon: '✈️' },
-  { name: 'Deportes',     icon: '⚽' },
-  { name: 'Cine',         icon: '🎬' },
-  { name: 'Cocina',       icon: '🍳' },
-  { name: 'Arte',         icon: '🎨' },
-  { name: 'Tecnología',   icon: '💻' },
-  { name: 'Lectura',      icon: '📚' },
-  { name: 'Gaming',       icon: '🎮' },
-  { name: 'Fotografía',   icon: '📷' },
-  { name: 'Yoga',         icon: '🧘' },
-  { name: 'Naturaleza',   icon: '🌿' },
-  { name: 'Fitness',      icon: '💪' },
-  { name: 'Moda',         icon: '👗' },
-  { name: 'Baile',        icon: '💃' },
-  { name: 'Mascotas',     icon: '🐾' },
+  { name: 'Música',       Icon: Music           },
+  { name: 'Viajes',       Icon: Plane           },
+  { name: 'Deportes',     Icon: Trophy          },
+  { name: 'Cine',         Icon: Film            },
+  { name: 'Cocina',       Icon: ChefHat         },
+  { name: 'Arte',         Icon: Palette         },
+  { name: 'Tecnología',   Icon: Laptop          },
+  { name: 'Lectura',      Icon: BookOpen        },
+  { name: 'Gaming',       Icon: Gamepad2        },
+  { name: 'Fotografía',   Icon: Camera          },
+  { name: 'Yoga',         Icon: PersonStanding  },
+  { name: 'Naturaleza',   Icon: Leaf            },
+  { name: 'Fitness',      Icon: Dumbbell        },
+  { name: 'Moda',         Icon: Shirt           },
+  { name: 'Baile',        Icon: Radio           },
+  { name: 'Mascotas',     Icon: PawPrint        },
 ];
 
 const DIST_STEPS = [5, 10, 20, 30, 50, 75, 100, 150, 200];
 
 // ─── Sección colapsable ───────────────────────────────────────────────────────
 function Section({ title, icon, badge, children }: {
-  title: string; icon: string; badge?: number; children: React.ReactNode;
+  title: string; icon: React.ReactNode; badge?: number; children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(true);
   const { colors, isDark } = useTheme();
@@ -59,7 +66,7 @@ function Section({ title, icon, badge, children }: {
     <View style={[sec.wrap, { borderBottomColor: bc }]}>
       <TouchableOpacity style={sec.header} onPress={() => setOpen(v => !v)} activeOpacity={0.7}>
         <View style={sec.left}>
-          <Text style={sec.icon}>{icon}</Text>
+          {icon}
           <Text style={[sec.title, { color: tc }]}>{title}</Text>
           {badge != null && badge > 0 && (
             <View style={[sec.badge, { backgroundColor: colors.primary }]}>
@@ -77,7 +84,6 @@ const sec = StyleSheet.create({
   wrap: { borderBottomWidth: 1, marginBottom: 4 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 },
   left: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  icon: { fontSize: 18 },
   title: { fontSize: 14, fontWeight: '800' },
   badge: { minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   badgeTxt: { color: '#fff', fontSize: 10, fontWeight: '800' },
@@ -85,8 +91,9 @@ const sec = StyleSheet.create({
 });
 
 // ─── Chip genérico ────────────────────────────────────────────────────────────
-function Chip({ label, active, onPress, primary, small }: {
+function Chip({ label, active, onPress, primary, small, Icon: IconComponent }: {
   label: string; active: boolean; onPress: () => void; primary: string; small?: boolean;
+  Icon?: React.ComponentType<any>;
 }) {
   const { isDark } = useTheme();
   const bc = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
@@ -101,12 +108,15 @@ function Chip({ label, active, onPress, primary, small }: {
         active ? { backgroundColor: primary, borderColor: primary } : { backgroundColor: 'transparent', borderColor: bc },
       ]}
     >
+      {IconComponent && (
+        <IconComponent size={small ? 11 : 13} color={active ? '#fff' : tc} />
+      )}
       <Text style={[ch.label, { color: active ? '#fff' : tc, fontSize: small ? 12 : 13 }]}>{label}</Text>
     </TouchableOpacity>
   );
 }
 const ch = StyleSheet.create({
-  chip: { borderRadius: 20, borderWidth: 1.5, paddingHorizontal: 14, paddingVertical: 7 },
+  chip: { borderRadius: 20, borderWidth: 1.5, paddingHorizontal: 14, paddingVertical: 7, flexDirection: 'row', alignItems: 'center', gap: 5 },
   small: { paddingHorizontal: 10, paddingVertical: 5 },
   label: { fontWeight: '700' },
 });
@@ -315,18 +325,18 @@ export default function FilterFunnel({ settings, saving, onSave, onApplied }: Pr
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={ff.scroll}>
 
             {/* 1. DISTANCIA */}
-            <Section title="Distancia máxima" icon="📍">
+            <Section title="Distancia máxima" icon={<MapPin size={18} color={colors.primary} />}>
               <DistanceControl value={dist} onChange={setDist} primary={colors.primary} />
             </Section>
 
             {/* 2. EDAD */}
-            <Section title="Rango de edad" icon="🎂">
+            <Section title="Rango de edad" icon={<Cake size={18} color={colors.primary} />}>
               <AgeRange min={minAge} max={maxAge} onMin={setMinAge} onMax={setMaxAge}
                 primary={colors.primary} secondary={colors.secondary} />
             </Section>
 
             {/* 3. GÉNERO */}
-            <Section title="Mostrarme" icon="👤">
+            <Section title="Mostrarme" icon={<User size={18} color={colors.primary} />}>
               <View style={ff.chipRow}>
                 {GENDER_OPTS.map(o => (
                   <Chip key={o.value} label={o.label} active={gender === o.value}
@@ -336,10 +346,11 @@ export default function FilterFunnel({ settings, saving, onSave, onApplied }: Pr
             </Section>
 
             {/* 4. QUÉ BUSCAN */}
-            <Section title="¿Qué buscan?" icon="💬" badge={(lookFor !== 'ALL' && lookFor) ? 1 : 0}>
+            <Section title="¿Qué buscan?" icon={<MessageCircle size={18} color={colors.primary} />} badge={(lookFor !== 'ALL' && lookFor) ? 1 : 0}>
               <View style={ff.chipWrap}>
                 {LOOKING_FOR_OPTS.map(o => (
-                  <Chip key={o.value} label={`${o.emoji} ${o.label}`}
+                  <Chip key={o.value} label={o.label}
+                    Icon={o.Icon}
                     active={lookFor === o.value}
                     onPress={() => setLookFor(o.value as any)}
                     primary={colors.primary} small />
@@ -348,13 +359,14 @@ export default function FilterFunnel({ settings, saving, onSave, onApplied }: Pr
             </Section>
 
             {/* 5. INTERESES */}
-            <Section title="Intereses en común" icon="✨" badge={interests.length}>
+            <Section title="Intereses en común" icon={<Sparkles size={18} color={colors.primary} />} badge={interests.length}>
               <Text style={[ff.hint, { color: sub }]}>
                 Solo verás perfiles que tengan al menos uno de estos intereses
               </Text>
               <View style={ff.chipWrap}>
                 {INTERESTS_LIST.map(i => (
-                  <Chip key={i.name} label={`${i.icon} ${i.name}`}
+                  <Chip key={i.name} label={i.name}
+                    Icon={i.Icon}
                     active={interests.includes(i.name)}
                     onPress={() => toggleInterest(i.name)}
                     primary={colors.primary} small />
@@ -363,11 +375,11 @@ export default function FilterFunnel({ settings, saving, onSave, onApplied }: Pr
             </Section>
 
             {/* 6. CALIDAD */}
-            <Section title="Calidad de perfiles" icon="⭐">
+            <Section title="Calidad de perfiles" icon={<Star size={18} color={colors.primary} />}>
               {/* Verificados */}
               <View style={[ff.toggleRow, { borderColor: bc }]}>
                 <View>
-                  <Text style={[ff.toggleLabel, { color: tc }]}>Solo verificados ✅</Text>
+                  <Text style={[ff.toggleLabel, { color: tc }]}>Solo verificados</Text>
                   <Text style={[ff.toggleSub, { color: sub }]}>Con identidad confirmada</Text>
                 </View>
                 <Switch value={verified} onValueChange={setVerified}
@@ -376,7 +388,7 @@ export default function FilterFunnel({ settings, saving, onSave, onApplied }: Pr
               {/* Con bio */}
               <View style={[ff.toggleRow, { borderColor: bc }]}>
                 <View>
-                  <Text style={[ff.toggleLabel, { color: tc }]}>Con descripción 📝</Text>
+                  <Text style={[ff.toggleLabel, { color: tc }]}>Con descripción</Text>
                   <Text style={[ff.toggleSub, { color: sub }]}>Perfiles que escribieron algo</Text>
                 </View>
                 <Switch value={hasBio} onValueChange={setHasBio}
@@ -385,7 +397,7 @@ export default function FilterFunnel({ settings, saving, onSave, onApplied }: Pr
               {/* Min fotos */}
               <View style={[ff.toggleRow, { borderColor: 'transparent' }]}>
                 <View>
-                  <Text style={[ff.toggleLabel, { color: tc }]}>Mínimo de fotos 📸</Text>
+                  <Text style={[ff.toggleLabel, { color: tc }]}>Mínimo de fotos</Text>
                   <Text style={[ff.toggleSub, { color: sub }]}>Al menos {minPhotos} foto(s)</Text>
                 </View>
                 <View style={ff.photoSteps}>

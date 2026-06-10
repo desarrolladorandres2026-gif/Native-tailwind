@@ -56,7 +56,7 @@ const MatchCard: React.FC<Props> = ({ match, onPress }) => {
         <Text style={styles.preview} numberOfLines={1}>
           {last_message
             ? last_message.content
-            : '¡Nuevo match! Di hola 👋'}
+            : '¡Nuevo match! Di hola'}
         </Text>
       </View>
     </TouchableOpacity>
