@@ -17,15 +17,16 @@ import { authService } from '../../components/services/authService';
 import { api } from '../../components/services/api';
 import { useTheme } from '../../theme/ThemeContext';
 import * as ImagePicker from 'expo-image-picker';
+import { Wrench, User, CreditCard, AlertTriangle, Lightbulb, ClipboardList } from 'lucide-react-native';
 
 // ─── SupportModal ─────────────────────────────────────────────────────────────
 const CATEGORIAS = [
-  { key: 'problema_tecnico', label: '🔧 Problema técnico' },
-  { key: 'cuenta',           label: '👤 Mi cuenta' },
-  { key: 'pagos',            label: '💳 Pagos' },
-  { key: 'abuso',            label: '🚨 Acoso o abuso' },
-  { key: 'sugerencia',       label: '💡 Sugerencia' },
-  { key: 'otro',             label: '📋 Otro' },
+  { key: 'problema_tecnico', label: 'Problema técnico', Icon: Wrench },
+  { key: 'cuenta',           label: 'Mi cuenta',        Icon: User },
+  { key: 'pagos',            label: 'Pagos',             Icon: CreditCard },
+  { key: 'abuso',            label: 'Acoso o abuso',     Icon: AlertTriangle },
+  { key: 'sugerencia',       label: 'Sugerencia',        Icon: Lightbulb },
+  { key: 'otro',             label: 'Otro',              Icon: ClipboardList },
 ];
 
 function SupportModal({
@@ -118,6 +119,10 @@ function SupportModal({
                       ]}
                       onPress={() => setCategoria(c.key)}
                     >
+                      <c.Icon
+                        size={13}
+                        color={categoria === c.key ? colors.primary : colors.textDim}
+                      />
                       <Text style={[
                         sp.chipText,
                         { color: colors.textDim },
@@ -203,7 +208,7 @@ const sp = StyleSheet.create({
   subtitle:     { fontSize: 14, lineHeight: 20, marginBottom: 22 },
   label:        { fontSize: 11, fontWeight: '800', letterSpacing: 1.2, marginBottom: 10 },
   chips:        { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip:         { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20, borderWidth: 1.5 },
+  chip:         { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20, borderWidth: 1.5, flexDirection: 'row', alignItems: 'center', gap: 6 },
   chipText:     { fontSize: 13, fontWeight: '500' },
   input: {
     borderWidth: 1.5, borderRadius: 14,

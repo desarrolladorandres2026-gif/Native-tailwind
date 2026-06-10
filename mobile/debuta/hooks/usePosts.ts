@@ -1,8 +1,5 @@
 import { useState, useCallback } from 'react';
 import { api } from '../components/services/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import Constants from 'expo-constants';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -22,14 +19,6 @@ export interface Post {
   image?:    { url: string; public_id: string };
   likes:     string[];
   createdAt: string;
-}
-
-function getBaseUrl(): string {
-  if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL + '/api';
-  const host =
-    Constants.expoConfig?.hostUri?.split(':')[0] ||
-    (Constants.manifest as any)?.debuggerHost?.split(':')[0];
-  return host ? `http://${host}:3000/api` : 'http://localhost:3000/api';
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
@@ -57,9 +46,6 @@ export function usePosts(userId?: string) {
   const createPost = useCallback(async (text: string, imageUri?: string): Promise<boolean> => {
     setPosting(true);
     try {
-      const token   = await AsyncStorage.getItem('access_token');
-      const baseUrl = getBaseUrl();
-
       const formData = new FormData();
       if (text?.trim()) formData.append('text', text.trim());
       if (imageUri) {
@@ -70,17 +56,8 @@ export function usePosts(userId?: string) {
         } as any);
       }
 
-      const res = await axios.post<{ post: Post }>(
-        `${baseUrl}/posts`,
-        formData,
-        {
-          headers: {
-            'Content-Type':  'multipart/form-data',
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-      setPosts(prev => [res.data.post, ...prev]);
+      const res = await api.postForm<{ post: Post }>('/posts', formData);
+      setPosts(prev => [res.post, ...prev]);
       return true;
     } catch (e: any) {
       console.error('usePosts.createPost:', e?.response?.data || e?.message);
