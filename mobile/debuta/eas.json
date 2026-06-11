@@ -8,7 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://debuta.online"
+        "EXPO_PUBLIC_API_URL": "https://api.debuta.online"
       }
     },
     "preview": {
@@ -17,13 +17,13 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://debuta.online"
+        "EXPO_PUBLIC_API_URL": "https://api.debuta.online"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://debuta.online"
+        "EXPO_PUBLIC_API_URL": "https://api.debuta.online"
       }
     }
   },
