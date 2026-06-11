@@ -44,37 +44,51 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Si ya hay un socket conectado, no crear otro
     if (socketRef.current?.connected) {
-      console.log('🌐 [Socket] Ya conectado, reutilizando');
+      console.log('🌐 [Socket] Ya conectado, reutilizando. ID:', socketRef.current.id);
       return;
     }
 
-    // Limpiar socket previo
+    // Limpiar socket previo desconectado
     if (socketRef.current) {
+      console.log('🧹 [Socket] Limpiando socket previo...');
       socketRef.current.removeAllListeners();
       socketRef.current.disconnect();
       socketRef.current = null;
     }
 
-    console.log('🌐 [Socket] Conectando a:', getSocketUrl());
+    const url = getSocketUrl();
+    console.log('🌐 [Socket] Iniciando conexión a:', url);
+    console.log('🔧 [Socket] Transporte: polling → websocket (upgrade automático)');
 
-    const newSocket = io(getSocketUrl(), {
+    // Se usa polling como transporte inicial para garantizar compatibilidad con
+    // cualquier proxy/firewall. Socket.IO hace upgrade automático a WebSocket
+    // una vez que la sesión HTTP está establecida.
+    const newSocket = io(url, {
       auth: { token, name, photo },
-      transports: ['websocket'],
+      transports: ['polling', 'websocket'],
+      upgrade: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 2000,
-      timeout: 10000,
+      reconnectionDelayMax: 10000,
+      timeout: 20000,
+      forceNew: false,
     });
 
     newSocket.on('connect', () => {
-      console.log('✅ [Socket] Conectado! ID:', newSocket.id);
+      const transport = newSocket.io.engine?.transport?.name ?? 'desconocido';
+      console.log(`✅ [Socket] Conectado! ID: ${newSocket.id} | Transporte: ${transport}`);
       if (mountedRef.current) {
         setConnected(true);
-        // Detener poller cuando ya está conectado
         if (pollerRef.current) {
           clearInterval(pollerRef.current);
           pollerRef.current = null;
         }
       }
+    });
+
+    // Registra cuando Socket.IO hace upgrade de polling → websocket
+    newSocket.io.engine?.on('upgrade', (transport: any) => {
+      console.log('⬆️ [Socket] Upgrade de transporte a:', transport?.name ?? transport);
     });
 
     newSocket.on('disconnect', (reason) => {
@@ -83,7 +97,23 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     newSocket.on('connect_error', (err) => {
+      // Loguear descripción completa para diagnóstico
       console.error('❌ [Socket] Error de conexión:', err.message);
+      console.error('❌ [Socket] Causa:', (err as any).cause ?? 'sin causa adicional');
+      console.error('❌ [Socket] Descripción:', (err as any).description ?? 'sin descripción');
+      console.error('❌ [Socket] Contexto:', (err as any).context ?? 'sin contexto');
+    });
+
+    newSocket.on('reconnect', (attemptNumber: number) => {
+      console.log(`🔄 [Socket] Reconectado en intento #${attemptNumber}`);
+    });
+
+    newSocket.on('reconnect_attempt', (attemptNumber: number) => {
+      console.log(`🔄 [Socket] Intento de reconexión #${attemptNumber}...`);
+    });
+
+    newSocket.on('reconnect_failed', () => {
+      console.error('❌ [Socket] Se agotaron los intentos de reconexión.');
     });
 
     socketRef.current = newSocket;
@@ -93,7 +123,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Función pública para reconectar (llamar desde login/logout)
   const reconnect = useCallback(async () => {
     console.log('🔄 [Socket] Reconexión manual solicitada...');
-    // Desconectar socket anterior
     if (socketRef.current) {
       socketRef.current.removeAllListeners();
       socketRef.current.disconnect();
