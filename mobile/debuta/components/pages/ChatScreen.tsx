@@ -19,6 +19,7 @@ import { useCall } from '../../context/CallContext';
 import { useSocket } from '../../context/SocketContext';
 import { incrementMessagesSent, updateBestStreak } from '../profile/BadgesSection';
 import { lastSeenText } from '../utils/age';
+import { boxShadow } from '../utils/shadow';
 import { useTheme } from '../../theme/ThemeContext';
 import { api } from '../services/api';
 import { Sparkles, UtensilsCrossed, Flame } from 'lucide-react-native';
@@ -689,8 +690,7 @@ const s = StyleSheet.create({
   dateCardWrap: { marginTop: 10, marginBottom: 10 },
   dateCard: {
     borderRadius: 24, padding: 18, borderWidth: 1,
-    shadowColor: '#8B5CF6', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12, shadowRadius: 20, elevation: 6,
+    boxShadow: boxShadow('#8B5CF6', 8, 20, 0.12),
   },
   dateHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

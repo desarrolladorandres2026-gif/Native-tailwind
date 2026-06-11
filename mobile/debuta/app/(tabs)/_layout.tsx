@@ -73,7 +73,7 @@ export default function TabsLayout() {
           paddingBottom:   Platform.OS === 'ios' ? 30 : 10,
           paddingTop:      6,
           elevation:       0,
-          shadowOpacity:   0,
+          boxShadow:       'none',
         },
         tabBarBackground: () => (
           <>

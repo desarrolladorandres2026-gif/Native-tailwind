@@ -16,6 +16,7 @@ import FloatingHearts from '../components/ui/FloatingHearts';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../theme/ThemeContext';
 import { useSocket } from '../context/SocketContext';
+import { boxShadow } from '../components/utils/shadow';
 
 const { width: W } = Dimensions.get('window');
 
@@ -151,8 +152,8 @@ export default function LoginScreen() {
                   <Text style={[s.forgotText, { color: colors.primary }]}>¿Olvidaste tu contraseña?</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
-                  style={[s.loginBtn, { shadowColor: colors.primary }, loading && s.btnDisabled]} 
+                <TouchableOpacity
+                  style={[s.loginBtn, { boxShadow: boxShadow(colors.primary, 8, 12, 0.3) }, loading && s.btnDisabled]}
                   onPress={handleLogin}
                   disabled={loading}
                   activeOpacity={0.85}
@@ -200,10 +201,10 @@ const s = StyleSheet.create({
   scroll: { paddingHorizontal: 25, flexGrow: 1, justifyContent: 'center', paddingBottom: 40 },
   header: { alignItems: 'center', marginBottom: 30 },
   logoContainer: { marginBottom: 15 },
-  logoGlass: { width: 80, height: 80, borderRadius: 25, alignItems: 'center', justifyContent: 'center', borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 },
+  logoGlass: { width: 80, height: 80, borderRadius: 25, alignItems: 'center', justifyContent: 'center', borderWidth: 1, boxShadow: boxShadow('#000', 4, 10, 0.1) },
   title: { fontSize: 36, fontWeight: '900', letterSpacing: -1 },
   subtitle: { fontSize: 16, marginTop: 5, fontWeight: '500' },
-  glassCard: { borderRadius: 30, padding: 25, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 10 },
+  glassCard: { borderRadius: 30, padding: 25, borderWidth: 1, boxShadow: boxShadow('#000', 10, 20, 0.1) },
   errorBadge: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 15, marginBottom: 20, gap: 8 },
   errorText: { fontSize: 14, fontWeight: '700', flex: 1 },
   inputGroup: { marginBottom: 15 },
@@ -213,15 +214,15 @@ const s = StyleSheet.create({
     alignItems: 'center', 
     borderRadius: 20, 
     paddingHorizontal: 16, 
-    height: 60, 
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2,
-    borderWidth: 1 
+    height: 60,
+    boxShadow: boxShadow('#000', 4, 10, 0.05),
+    borderWidth: 1
   },
   inputIcon: { marginRight: 12 },
   input: { flex: 1, fontSize: 16, fontWeight: '500' },
   forgotBtn: { alignSelf: 'flex-end', marginBottom: 20 },
   forgotText: { fontSize: 14, fontWeight: '700' },
-  loginBtn: { height: 64, borderRadius: 22, overflow: 'hidden', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
+  loginBtn: { height: 64, borderRadius: 22, overflow: 'hidden' },
   btnGradient: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   loginBtnText: { color: '#FFFFFF', fontSize: 19, fontWeight: '900', letterSpacing: 0.5 },
   btnDisabled: { opacity: 0.7 },

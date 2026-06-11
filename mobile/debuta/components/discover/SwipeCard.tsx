@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Zap } from 'lucide-react-native';
 import { UserProfile } from '../../components/types/index';
 import { getAge, getDistance } from '../../components/utils/age';
+import { boxShadow } from '../utils/shadow';
 
 const { width: W, height: H } = Dimensions.get('window');
 const SWIPE_THRESHOLD = W * 0.3;
@@ -235,11 +236,7 @@ const s = StyleSheet.create({
     position:        'absolute',
     backgroundColor: '#09061a',
     overflow:        'hidden',
-    elevation:       16,
-    shadowColor:     '#8B5CF6',
-    shadowOffset:    { width: 0, height: 14 },
-    shadowOpacity:   0.38,
-    shadowRadius:    28,
+    boxShadow:       boxShadow('#8B5CF6', 14, 28, 0.38),
   },
   image:   { width: '100%', height: '100%', resizeMode: 'cover' },
   overlay: { position: 'absolute', left: 0, right: 0, bottom: 0 },
@@ -310,19 +307,13 @@ const s = StyleSheet.create({
     left:          28,
     borderColor:   '#34C759',
     transform:     [{ rotate: '-24deg' }],
-    shadowColor:   '#34C759',
-    shadowOpacity: 0.65,
-    shadowRadius:  14,
-    elevation:     8,
+    boxShadow:     boxShadow('#34C759', 0, 14, 0.65),
   },
   nopeBadge: {
     right:         28,
     borderColor:   '#FF3B30',
     transform:     [{ rotate: '24deg' }],
-    shadowColor:   '#FF3B30',
-    shadowOpacity: 0.65,
-    shadowRadius:  14,
-    elevation:     8,
+    boxShadow:     boxShadow('#FF3B30', 0, 14, 0.65),
   },
   badgeText:     { fontSize: 40, fontWeight: '900' },
   likeBadgeText: { color: '#34C759' },

@@ -4,6 +4,7 @@
     "slug": "debuta",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/images/splash-icon.png",
     "scheme": "debuta",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -15,6 +16,7 @@
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/images/splash-icon.png",
         "backgroundColor": "#E6F4FE"
       },
       "permissions": [

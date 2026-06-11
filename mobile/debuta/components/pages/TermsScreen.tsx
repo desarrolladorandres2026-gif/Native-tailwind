@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import FloatingHearts from '../ui/FloatingHearts';
+import { boxShadow } from '../utils/shadow';
 import { useTheme } from '../../theme/ThemeContext';
 
 const { width: W } = Dimensions.get('window');
@@ -176,7 +177,7 @@ const s = StyleSheet.create({
   backIconCircle: {
     width: 40, height: 40, borderRadius: 20,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2,
+    boxShadow: boxShadow('#000', 2, 4, 0.1),
     borderWidth: 1,
   },
   headerTitle: { fontSize: 18, fontWeight: '800', flex: 1, textAlign: 'center' },
@@ -185,7 +186,7 @@ const s = StyleSheet.create({
     borderRadius: 30,
     padding: 24,
     borderWidth: 1,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.05, shadowRadius: 20, elevation: 5,
+    boxShadow: boxShadow('#000', 10, 20, 0.05),
   },
   lastUpdate: { fontSize: 13, marginBottom: 30, fontStyle: 'italic' },
   section: { marginBottom: 32 },

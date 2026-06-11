@@ -12,6 +12,7 @@ import { useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
 import { useCall } from '../../context/CallContext';
 import * as Haptics from 'expo-haptics';
+import { boxShadow, textShadow } from '../utils/shadow';
 
 // RTCView solo disponible en build nativo (no en Expo Go)
 const IS_EXPO_GO = Constants.executionEnvironment === 'storeClient';
@@ -364,7 +365,7 @@ const s = StyleSheet.create({
   },
   ring1: { borderColor: 'rgba(139,92,246,0.35)' },
   ring2: { borderColor: 'rgba(217,70,239,0.2)' },
-  avatarContainer: { elevation: 20, shadowColor: '#8B5CF6', shadowRadius: 30, shadowOpacity: 0.5 },
+  avatarContainer: { boxShadow: boxShadow('#8B5CF6', 0, 30, 0.5) },
   avatarGradientBorder: {
     width: AVATAR_SIZE + 6,
     height: AVATAR_SIZE + 6,
@@ -381,9 +382,7 @@ const s = StyleSheet.create({
   callerName: {
     fontSize: 30, fontWeight: '800', color: 'white',
     marginTop: 24, letterSpacing: -0.5,
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 6,
+    textShadow: textShadow('rgba(0,0,0,0.5)', 2, 6),
   },
   statusText: {
     fontSize: 17, color: 'rgba(255,255,255,0.65)',
@@ -420,11 +419,7 @@ const s = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.3)',
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    boxShadow: boxShadow('#000', 4, 8, 0.3),
   },
   localVideo: { flex: 1 },
 
@@ -440,11 +435,7 @@ const s = StyleSheet.create({
   bigBtn: {
     width: 74, height: 74, borderRadius: 37,
     alignItems: 'center', justifyContent: 'center',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
+    boxShadow: boxShadow('#000', 4, 8, 0.4),
   },
   bigBtnLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '600' },
 
@@ -471,10 +462,6 @@ const s = StyleSheet.create({
     width: 72, height: 72, borderRadius: 36,
     backgroundColor: '#FF3B30',
     alignItems: 'center', justifyContent: 'center',
-    elevation: 10,
-    shadowColor: '#FF3B30',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
+    boxShadow: boxShadow('#FF3B30', 6, 12, 0.6),
   },
 });

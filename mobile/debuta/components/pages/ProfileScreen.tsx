@@ -16,6 +16,7 @@ import * as Haptics from 'expo-haptics';
 import { useProfile, UserProfile } from '../../hooks/useProfile';
 import FloatingHearts from '../ui/FloatingHearts';
 import BadgesSection from '../profile/BadgesSection';
+import { boxShadow } from '../utils/shadow';
 import { useTheme } from '../../theme/ThemeContext';
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -447,22 +448,14 @@ const s = StyleSheet.create({
     borderRadius: 40, 
     padding: 25,
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 15 },
-    shadowOpacity: 0.1,
-    shadowRadius: 30,
-    elevation: 10,
+    boxShadow: boxShadow('#000', 15, 30, 0.1),
     marginBottom: 20,
   },
   avatarWrapper: { alignItems: 'center', marginTop: -75 },
   avatarGradientRing: {
     padding:       3,
     borderRadius:  67,
-    shadowColor:   '#8B5CF6',
-    shadowOffset:  { width: 0, height: 8 },
-    shadowOpacity: 0.45,
-    shadowRadius:  18,
-    elevation:     12,
+    boxShadow:     boxShadow('#8B5CF6', 8, 18, 0.45),
   },
   avatarInner: {
     padding:      5,

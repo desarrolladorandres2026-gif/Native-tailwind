@@ -20,6 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import FloatingHearts from '../ui/FloatingHearts';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import { boxShadow, textShadow } from '../utils/shadow';
 import { useTheme } from '../../theme/ThemeContext';
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -236,7 +237,7 @@ export default function OnboardingScreen() {
       <Animated.View style={[s.content, { opacity: slideOpacity, transform: [{ translateX: slideTranslateX }] }]}>
 
         {/* Icono con gradiente */}
-        <Animated.View style={[s.iconWrap, { transform: [{ scale: iconScale }, { rotate: iconRotateStr }], shadowColor: colors.primary }]}>
+        <Animated.View style={[s.iconWrap, { transform: [{ scale: iconScale }, { rotate: iconRotateStr }], boxShadow: boxShadow(colors.primary, 12, 24, 0.20) }]}>
           <LinearGradient colors={slide.gradient} start={[0,0]} end={[1,1]} style={StyleSheet.absoluteFillObject} />
           <View style={[s.iconInner, { backgroundColor: colors.card, borderColor: colors.glassBorder }]}>
             <Ionicons name={slide.icon} size={60} color={slide.accent} />
@@ -245,7 +246,7 @@ export default function OnboardingScreen() {
 
         {/* Título + subtítulo */}
         <Animated.View style={[s.textBlock, { opacity: textOpacity, transform: [{ translateY: textTranslateY }] }]}>
-          <Text style={[s.title, { color: isDark ? colors.text : slide.accent, shadowColor: isDark ? 'transparent' : `${colors.primary}40` }]}>{slide.title}</Text>
+          <Text style={[s.title, { color: isDark ? colors.text : slide.accent, textShadow: isDark ? 'none' : textShadow(`${colors.primary}40`, 2, 4) }]}>{slide.title}</Text>
           <Text style={[s.subtitle, { color: colors.textDim }]}>{slide.subtitle}</Text>
 
           {/* Chip de detalle */}
@@ -292,7 +293,7 @@ export default function OnboardingScreen() {
           </TouchableOpacity>
 
           {/* Siguiente / Empezar */}
-          <TouchableOpacity style={[s.nextBtn, { shadowColor: colors.primary }]} onPress={goNext} activeOpacity={0.85}>
+          <TouchableOpacity style={[s.nextBtn, { boxShadow: boxShadow(colors.primary, 6, 12, 0.25) }]} onPress={goNext} activeOpacity={0.85}>
             <LinearGradient colors={[colors.primary, colors.secondary]} start={[0,0]} end={[1,0]} style={s.nextBtnGrad}>
               <Text style={s.nextBtnText}>{isLast ? '¡Empezar!' : 'Continuar'}</Text>
               <Ionicons
@@ -332,7 +333,7 @@ const s = StyleSheet.create({
     paddingVertical: 8, paddingHorizontal: 14,
     borderRadius: 20, borderWidth: 1,
     zIndex: 10,
-    shadowColor: 'rgba(0,0,0,0.1)', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.10, shadowRadius: 8, elevation: 3,
+    boxShadow: boxShadow('rgba(0,0,0,0.1)', 4, 8, 0.10),
   },
   skipText: { fontSize: 13, fontWeight: '600' },
 
@@ -348,7 +349,6 @@ const s = StyleSheet.create({
     width: 150, height: 150, borderRadius: 75,
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',
-    shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.20, shadowRadius: 24, elevation: 12,
     marginBottom: 36,
   },
   iconInner: {
@@ -360,7 +360,6 @@ const s = StyleSheet.create({
   textBlock: { alignItems: 'center', gap: 12, width: '100%' },
   title: {
     fontSize: 34, fontWeight: '900', letterSpacing: 0.5, textAlign: 'center',
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2,
   },
   subtitle: {
     fontSize: 16, textAlign: 'center', lineHeight: 24, paddingHorizontal: 8,
@@ -390,11 +389,10 @@ const s = StyleSheet.create({
     width: 48, height: 48, borderRadius: 24,
     borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: 'rgba(0,0,0,0.1)', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.10, shadowRadius: 8, elevation: 3,
+    boxShadow: boxShadow('rgba(0,0,0,0.1)', 4, 8, 0.10),
   },
   nextBtn: {
     flex: 1, borderRadius: 16, overflow: 'hidden',
-    shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 6,
   },
   nextBtnGrad: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

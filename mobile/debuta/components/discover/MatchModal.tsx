@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Zap, MessageCircle } from 'lucide-react-native';
 import { Afinidad } from '../types';
+import { boxShadow } from '../utils/shadow';
 
 const { width: W, height: H } = Dimensions.get('window');
 
@@ -352,11 +353,7 @@ const st = StyleSheet.create({
     alignItems:      'center',
     borderWidth:     1.5,
     borderColor:     'rgba(232,101,154,0.38)',
-    shadowColor:     '#e8659a',
-    shadowOffset:    { width: 0, height: 16 },
-    shadowOpacity:   0.38,
-    shadowRadius:    30,
-    elevation:       20,
+    boxShadow:       boxShadow('#e8659a', 16, 30, 0.38),
   },
   glowRingOuter: {
     position:     'absolute',
@@ -393,10 +390,7 @@ const st = StyleSheet.create({
     justifyContent:  'center',
     borderWidth:     1.5,
     borderColor:     'rgba(232,101,154,0.38)',
-    shadowColor:     '#e8659a',
-    shadowOpacity:   0.45,
-    shadowRadius:    18,
-    elevation:       10,
+    boxShadow:       boxShadow('#e8659a', 0, 18, 0.45),
   },
   title: {
     color:        '#2d1b3d',

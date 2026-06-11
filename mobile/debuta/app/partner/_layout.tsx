@@ -18,7 +18,7 @@ export default function PartnerLayout() {
           paddingBottom: Platform.OS === 'ios' ? 30 : 10,
           paddingTop: 6,
           elevation: 0,
-          shadowOpacity: 0,
+          boxShadow: 'none',
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textLight,

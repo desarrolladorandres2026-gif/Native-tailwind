@@ -3,6 +3,7 @@ import { Modal, View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { boxShadow } from '../utils/shadow';
 
 const { width } = Dimensions.get('window');
 
@@ -76,11 +77,7 @@ const s = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 32,
     overflow: 'hidden',
-    elevation: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
+    boxShadow: boxShadow('#000', 10, 20, 0.3),
   },
   headerGradient: {
     height: 140,
@@ -146,11 +143,7 @@ const s = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     marginBottom: 12,
-    shadowColor: '#FD297B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    boxShadow: boxShadow('#FD297B', 4, 8, 0.3),
   },
   btnPrimaryText: {
     color: '#fff',

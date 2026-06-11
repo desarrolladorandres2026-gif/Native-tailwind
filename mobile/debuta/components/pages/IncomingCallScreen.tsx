@@ -12,6 +12,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { boxShadow, textShadow } from '../utils/shadow';
 
 const { width, height } = Dimensions.get('window');
 
@@ -345,11 +346,7 @@ const s = StyleSheet.create({
   avatarBorder: {
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 20,
-    shadowColor: '#25D366',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
+    boxShadow: boxShadow('#25D366', 8, 20, 0.5),
   },
   avatar: {
     backgroundColor: '#1a1a2e',
@@ -363,9 +360,7 @@ const s = StyleSheet.create({
     letterSpacing: -0.5,
     textAlign: 'center',
     marginBottom: 8,
-    textShadowColor: 'rgba(0,0,0,0.6)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
+    textShadow: textShadow('rgba(0,0,0,0.6)', 2, 8),
   },
   subText: {
     color: 'rgba(255,255,255,0.55)',
@@ -399,16 +394,10 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   rejectBtn: {
-    shadowColor: '#FF3B30',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.55,
-    shadowRadius: 14,
+    boxShadow: boxShadow('#FF3B30', 6, 14, 0.55),
   },
   acceptBtn: {
-    shadowColor: '#25D366',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.55,
-    shadowRadius: 14,
+    boxShadow: boxShadow('#25D366', 6, 14, 0.55),
   },
   actionLabel: {
     color: 'rgba(255,255,255,0.75)',

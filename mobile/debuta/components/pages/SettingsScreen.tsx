@@ -15,6 +15,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
 import { authService } from '../../components/services/authService';
 import { api } from '../../components/services/api';
+import { boxShadow } from '../../components/utils/shadow';
 import { useTheme } from '../../theme/ThemeContext';
 import * as ImagePicker from 'expo-image-picker';
 import { Wrench, User, CreditCard, AlertTriangle, Lightbulb, ClipboardList } from 'lucide-react-native';
@@ -222,8 +223,7 @@ const sp = StyleSheet.create({
   sendBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     borderRadius: 16, paddingVertical: 16, marginTop: 4,
-    shadowColor: '#FD297B', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
+    boxShadow: boxShadow('#FD297B', 4, 8, 0.3),
   },
   sendBtnText:  { color: '#fff', fontSize: 16, fontWeight: '800' },
   cancelBtn:    { alignItems: 'center', paddingVertical: 14 },

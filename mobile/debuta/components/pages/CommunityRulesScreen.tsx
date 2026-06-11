@@ -17,6 +17,7 @@ import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import FloatingHearts from '../ui/FloatingHearts';
+import { boxShadow } from '../utils/shadow';
 import { useTheme } from '../../theme/ThemeContext';
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -134,7 +135,7 @@ export default function CommunityRulesScreen() {
         <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
           {/* Header */}
           <View style={styles.header}>
-            <View style={[styles.iconCircle, { backgroundColor: colors.card, shadowColor: colors.primary }]}>
+            <View style={[styles.iconCircle, { backgroundColor: colors.card, boxShadow: boxShadow(colors.primary, 10, 15, 0.2) }]}>
               <LinearGradient
                 colors={[colors.primary, colors.secondary]}
                 style={styles.headerIconGrad}
@@ -233,10 +234,6 @@ const styles = StyleSheet.create({
     height: 90,
     borderRadius: 45,
     padding: 4,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-    elevation: 8,
     marginBottom: 20,
   },
   headerIconGrad: {
@@ -265,11 +262,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 20,
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    boxShadow: boxShadow('#000', 2, 10, 0.05),
   },
   ruleIconContainer: {
     width: 48,
@@ -316,10 +309,7 @@ const styles = StyleSheet.create({
   acceptBtn: {
     borderRadius: 20,
     overflow: 'hidden',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    boxShadow: boxShadow('#000', 6, 12, 0.3),
   },
   acceptBtnGrad: {
     flexDirection: 'row',

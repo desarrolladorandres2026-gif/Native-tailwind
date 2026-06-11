@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { UserProfile } from '../types';
 import { getAge } from '../utils/age';
+import { boxShadow } from '../utils/shadow';
 
 const { width: W, height: H } = Dimensions.get('window');
 
@@ -263,10 +264,7 @@ const s = StyleSheet.create({
     borderWidth: 4,
     borderColor: '#FFFFFF',
     backgroundColor: '#EEEEEE',
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 8,
+    boxShadow: boxShadow('#000', 0, 10, 0.15),
   },
   avatar: {
     width: '100%',
@@ -409,10 +407,7 @@ const s = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 8,
+    boxShadow: boxShadow('#000', 0, 10, 0.15),
   },
   actionBtnNope: {
     borderWidth: 1,

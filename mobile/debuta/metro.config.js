@@ -5,6 +5,10 @@ const path = require('path');
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
 
+// Desactiva la validación estricta del campo "exports" de package.json.
+// Necesario para react-native-webrtc (event-target-shim no expone "./index").
+config.resolver.unstable_enablePackageExports = false;
+
 // Módulos nativos que NO deben resolverse en la plataforma web
 const NATIVE_ONLY_MODULES = [
   'react-native-webrtc',

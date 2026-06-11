@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { boxShadow } from '../utils/shadow';
 
 interface Props {
   percentage: number;
@@ -65,11 +66,7 @@ const s = StyleSheet.create({
     marginBottom: 6,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
+    boxShadow: boxShadow('#2563EB', 4, 8, 0.2),
   },
   gradient: {
     padding: 14,

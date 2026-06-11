@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { boxShadow } from '../components/utils/shadow';
 
 type AlertButton = {
   text: string;
@@ -105,7 +106,7 @@ const CustomAlertModal = ({ visible, options, onClose }: { visible: boolean; opt
 
 const s = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  card: { width: W * 0.85, backgroundColor: '#FFFFFF', borderRadius: 32, padding: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 10 },
+  card: { width: W * 0.85, backgroundColor: '#FFFFFF', borderRadius: 32, padding: 24, alignItems: 'center', boxShadow: boxShadow('#000', 10, 20, 0.2) },
   iconWrap: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#F2F2F7', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
   title: { fontSize: 22, fontWeight: '900', color: '#000', textAlign: 'center', marginBottom: 10 },
   message: { fontSize: 16, color: '#8E8E93', textAlign: 'center', marginBottom: 30, lineHeight: 22, fontWeight: '500' },

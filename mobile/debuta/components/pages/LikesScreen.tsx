@@ -10,6 +10,7 @@ import { router } from 'expo-router';
 import { useLikes } from '../../hooks/useLikes';
 import { api } from '../services/api';
 import { getAge, relativeTime } from '../utils/age';
+import { boxShadow } from '../utils/shadow';
 import ReportModal from '../report/ReportModal';
 import UserProfileModal from '../discover/UserProfileModal';
 import { UserProfile } from '../types';
@@ -181,13 +182,9 @@ const s = StyleSheet.create({
     marginHorizontal: 20, 
     marginVertical: 8, 
     borderRadius: 24, 
-    padding: 15, 
-    borderWidth: 1, 
-    shadowColor: '#000', 
-    shadowOffset: { width: 0, height: 5 }, 
-    shadowOpacity: 0.05, 
-    shadowRadius: 10, 
-    elevation: 5 
+    padding: 15,
+    borderWidth: 1,
+    boxShadow: boxShadow('#000', 5, 10, 0.05),
   },
   avatarWrap: { position: 'relative', marginRight: 15 },
   avatar: { width: 70, height: 70, borderRadius: 35 },
@@ -210,13 +207,9 @@ const s = StyleSheet.create({
     width: 54, 
     height: 54, 
     borderRadius: 27, 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    shadowColor: '#000', 
-    shadowOffset: { width: 0, height: 5 }, 
-    shadowOpacity: 0.2, 
-    shadowRadius: 8, 
-    elevation: 8 
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: boxShadow('#000', 5, 8, 0.2),
   },
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 100, paddingHorizontal: 40 },
   emptyTitle: { fontSize: 22, fontWeight: '800', marginTop: 20 },

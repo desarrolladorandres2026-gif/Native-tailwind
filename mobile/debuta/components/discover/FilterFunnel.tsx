@@ -15,6 +15,7 @@ import {
   Dumbbell, Shirt, Radio, PawPrint,
   MapPin, Cake, User, MessageCircle, Star,
 } from 'lucide-react-native';
+import { boxShadow } from '../utils/shadow';
 
 // ─── Datos constantes ─────────────────────────────────────────────────────────
 
@@ -430,7 +431,7 @@ export default function FilterFunnel({ settings, saving, onSave, onApplied }: Pr
 
 const ff = StyleSheet.create({
   // Chip header
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 5, elevation: 3 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, borderWidth: 1, boxShadow: boxShadow('#000', 2, 5, 0.06) },
   chipTxt: { fontSize: 13, fontWeight: '700' },
   badge: { minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   badgeTxt: { color: '#fff', fontSize: 10, fontWeight: '800' },

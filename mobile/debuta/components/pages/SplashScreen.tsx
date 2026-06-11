@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import FloatingHearts from '../ui/FloatingHearts';
+import { boxShadow, textShadow } from '../utils/shadow';
 import { useTheme } from '../../theme/ThemeContext';
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -102,7 +103,7 @@ export default function SplashScreen() {
           },
         ]}
       >
-        <Animated.View style={[styles.iconOuter, { shadowColor: colors.primary }]}>
+        <Animated.View style={[styles.iconOuter, { boxShadow: boxShadow(colors.primary, 8, 18, Platform.OS === 'ios' ? 0.25 : 0.4) }]}>
           <LinearGradient
             colors={[colors.primary, colors.secondary]}
             start={[0, 0]}
@@ -114,7 +115,7 @@ export default function SplashScreen() {
           </View>
         </Animated.View>
 
-        <Text style={[styles.logoText, { color: isDark ? '#FFF' : colors.text, shadowColor: colors.secondary }]}>Debuta</Text>
+        <Text style={[styles.logoText, { color: isDark ? '#FFF' : colors.text, textShadow: textShadow(colors.secondary, 4, 10) }]}>Debuta</Text>
       </Animated.View>
 
       {/* Texto */}
@@ -158,9 +159,9 @@ function FancyDots({ colors }: { colors: any }) {
 
   return (
     <View style={styles.dotsContainer}>
-      <Animated.View style={[styles.fDot, scaleStyle(d1), { backgroundColor: colors.primary, shadowColor: colors.primary }]} />
-      <Animated.View style={[styles.fDot, scaleStyle(d2), { backgroundColor: colors.secondary, shadowColor: colors.secondary }]} />
-      <Animated.View style={[styles.fDot, scaleStyle(d3), { backgroundColor: colors.tertiary, shadowColor: colors.tertiary }]} />
+      <Animated.View style={[styles.fDot, scaleStyle(d1), { backgroundColor: colors.primary, boxShadow: boxShadow(colors.primary, 4, 6, 0.2) }]} />
+      <Animated.View style={[styles.fDot, scaleStyle(d2), { backgroundColor: colors.secondary, boxShadow: boxShadow(colors.secondary, 4, 6, 0.2) }]} />
+      <Animated.View style={[styles.fDot, scaleStyle(d3), { backgroundColor: colors.tertiary, boxShadow: boxShadow(colors.tertiary, 4, 6, 0.2) }]} />
     </View>
   );
 }
@@ -199,10 +200,6 @@ const styles = StyleSheet.create({
     borderRadius: 55,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: Platform.OS === 'ios' ? 0.25 : 0.4,
-    shadowRadius: 18,
-    elevation: 10,
   },
 
   iconGradient: {
@@ -223,10 +220,6 @@ const styles = StyleSheet.create({
     fontSize: 36,
     fontWeight: '900',
     letterSpacing: 1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 3,
   },
 
   tagline: {
@@ -253,9 +246,5 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     marginHorizontal: 6,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 4,
   },
 });

@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useSocket } from './SocketContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { boxShadow } from '../components/utils/shadow';
 
 const { width: W } = Dimensions.get('window');
 
@@ -218,10 +219,7 @@ const s = StyleSheet.create({
     right: 16,
     zIndex: 9999,
     elevation: 9999,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
+    boxShadow: boxShadow('#000', 8, 16, 0.35),
   },
   toastInner: {
     borderRadius: 20,

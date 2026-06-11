@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../../components/services/api';
+import { boxShadow } from '../../components/utils/shadow';
 import { useTheme } from '../../theme/ThemeContext';
 import { useSocket } from '../../context/SocketContext';
 
@@ -189,8 +190,7 @@ const s = StyleSheet.create({
 
   card: {
     borderRadius: 20, borderWidth: 1, padding: 16, marginBottom: 14,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
+    boxShadow: boxShadow('#000', 4, 10, 0.06),
   },
   cardStatus: {
     flexDirection: 'row', justifyContent: 'space-between',

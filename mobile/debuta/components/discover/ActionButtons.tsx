@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../theme/ThemeContext';
+import { boxShadow } from '../utils/shadow';
 
 interface Props {
   onDislike:           () => void;
@@ -151,19 +152,11 @@ const s = StyleSheet.create({
   likeBtn: {
     overflow:      'hidden',
     borderWidth:   0,
-    shadowColor:   '#D946EF',
-    shadowOffset:  { width: 0, height: 14 },
-    shadowOpacity: 0.72,
-    shadowRadius:  28,
-    elevation:     18,
+    boxShadow:     boxShadow('#D946EF', 14, 28, 0.72),
   },
   dislikeBtn: {
     borderColor:   'rgba(255,88,100,0.30)',
-    shadowColor:   '#FF5864',
-    shadowOffset:  { width: 0, height: 6 },
-    shadowOpacity: 0.28,
-    shadowRadius:  14,
-    elevation:     6,
+    boxShadow:     boxShadow('#FF5864', 6, 14, 0.28),
   },
   superBtn: {
     backgroundColor: 'rgba(255,215,0,0.13)',

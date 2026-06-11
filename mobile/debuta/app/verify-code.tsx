@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import FloatingHearts from '../components/ui/FloatingHearts';
 import { api } from '../components/services/api';
+import { boxShadow } from '../components/utils/shadow';
 
 const { width: W } = Dimensions.get('window');
 
@@ -181,13 +182,12 @@ const s = StyleSheet.create({
   backBtn: {
     position: 'absolute', top: 16, left: 20, width: 40, height: 40, borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
+    boxShadow: boxShadow('#000', 2, 4, 0.1),
   },
   header: { alignItems: 'center', paddingBottom: 24, gap: 6, paddingTop: 60 },
   iconOuter: {
     width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center',
-    overflow: 'hidden', shadowColor: C.shadow, shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2, shadowRadius: 16, elevation: 10, marginBottom: 4,
+    overflow: 'hidden', boxShadow: boxShadow(C.shadow, 8, 16, 0.2), marginBottom: 4,
   },
   iconInner: {
     width: 64, height: 64, borderRadius: 32, backgroundColor: C.glass,
@@ -198,8 +198,7 @@ const s = StyleSheet.create({
   subheading: { fontSize: 14, color: C.textSoft, marginTop: 4, textAlign: 'center', lineHeight: 20 },
   card: {
     marginHorizontal: 20, backgroundColor: C.glass, borderRadius: 28, padding: 24, gap: 16,
-    borderWidth: 1, borderColor: C.glassBorder, shadowColor: C.shadow,
-    shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.1, shadowRadius: 24, elevation: 8,
+    borderWidth: 1, borderColor: C.glassBorder, boxShadow: boxShadow(C.shadow, 12, 24, 0.1),
   },
   errorBox: {
     flexDirection: 'row', gap: 8, alignItems: 'center', backgroundColor: C.errorBg,
@@ -213,8 +212,7 @@ const s = StyleSheet.create({
   },
   input: { flex: 1, color: C.text, fontSize: 15 },
   btnPrimary: {
-    borderRadius: 16, overflow: 'hidden', shadowColor: C.accent,
-    shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 6,
+    borderRadius: 16, overflow: 'hidden', boxShadow: boxShadow(C.accent, 6, 12, 0.25),
   },
   btnGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, paddingHorizontal: 24 },
   btnText:    { color: '#fff', fontWeight: '800', fontSize: 16, letterSpacing: 0.5 },

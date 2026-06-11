@@ -67,7 +67,17 @@
       "Read(//c/Users/desar/OneDPane/Desktop/Native tailwind/mobile/debuta/hooks/**)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('react-native:', p.dependencies['react-native']\\); console.log\\('expo:', p.dependencies['expo']\\); console.log\\('react-native-web:', p.dependencies['react-native-web']\\);\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://debuta.online/health)",
+      "Bash(curl -s https://debuta.online/health)",
+      "Bash(curl -s https://debuta.online/api)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://debuta.online/api/users)",
+      "Bash(curl -s https://debuta.online/api/users)",
+      "Bash(curl -s https://debuta.online/)",
+      "Bash(curl -sv https://debuta.online/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://debuta.online/apk/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://debuta.online/socket.io/)"
     ],
     "additionalDirectories": [
       "c:\\Users\\desar\\OneDrive\\Desktop\\Native tailwind\\backend\\models",

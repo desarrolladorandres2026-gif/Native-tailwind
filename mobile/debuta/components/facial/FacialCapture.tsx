@@ -16,6 +16,7 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { Eye, Camera } from 'lucide-react-native';
+import { boxShadow } from '../utils/shadow';
 
 interface Props {
   onCapture: (base64: string) => void;
@@ -165,9 +166,9 @@ const s = StyleSheet.create({
   tipRow:         { flexDirection: 'row', alignItems: 'center', gap: 6 },
   tipText:        { color: 'rgba(255,255,255,0.4)', fontSize: 12 },
   actions:        { marginTop: 20, gap: 10 },
-  btnCapture:     { flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF6B8A', borderRadius: 16, paddingVertical: 16, shadowColor: '#FF6B8A', shadowOpacity: 0.4, shadowRadius: 10, elevation: 6 },
+  btnCapture:     { flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF6B8A', borderRadius: 16, paddingVertical: 16, boxShadow: boxShadow('#FF6B8A', 0, 10, 0.4) },
   btnPrimary:     { backgroundColor: '#FF6B8A', borderRadius: 16, paddingVertical: 16, alignItems: 'center', width: '100%' },
-  btnDisabled:    { backgroundColor: '#7a3a4a', elevation: 0, shadowOpacity: 0 },
+  btnDisabled:    { backgroundColor: '#7a3a4a', boxShadow: 'none' },
   btnText:        { color: '#fff', fontWeight: '800', fontSize: 16 },
   btnSkip:        { alignItems: 'center', paddingVertical: 10 },
   skipText:       { color: 'rgba(255,255,255,0.35)', fontSize: 14 },

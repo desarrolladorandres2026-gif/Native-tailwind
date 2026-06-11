@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../theme/ThemeContext';
+import { boxShadow } from '../utils/shadow';
 
 interface Props { onRefresh: () => void; }
 
@@ -130,11 +131,7 @@ const st = StyleSheet.create({
     flexDirection:     'row',
     alignItems:        'center',
     gap:               8,
-    shadowColor:       '#8B5CF6',
-    shadowOffset:      { width: 0, height: 7 },
-    shadowOpacity:     0.42,
-    shadowRadius:      16,
-    elevation:         9,
+    boxShadow:         boxShadow('#8B5CF6', 7, 16, 0.42),
   },
   btnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
 });

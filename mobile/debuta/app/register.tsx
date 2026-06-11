@@ -19,6 +19,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useCustomAlert } from '../hooks/useCustomAlert';
 import StepIndicator from '../components/registration/StepIndicator';
 import { getAge } from '../components/utils/age';
+import { boxShadow } from '../components/utils/shadow';
 import { useTheme } from '../theme/ThemeContext';
 
 const { width: W } = Dimensions.get('window');
@@ -237,7 +238,7 @@ export default function RegisterScreen() {
       case 0: // Bienvenida
         return (
           <View style={s.welcomeContainer}>
-            <View style={[s.welcomeIconGlow, { shadowColor: colors.primary }]}>
+            <View style={[s.welcomeIconGlow, { boxShadow: boxShadow(colors.primary, 10, 20, 0.3) }]}>
               <Ionicons name="diamond" size={60} color={colors.primary} />
             </View>
             <Text style={[s.welcomeTitle, { color: colors.text }]}>Bienvenido a Debuta</Text>
@@ -432,7 +433,7 @@ export default function RegisterScreen() {
                 </View>
               )}
               {foto && (
-                <View style={[s.photoCheck, { backgroundColor: colors.primary, shadowColor: colors.primary }]}>
+                <View style={[s.photoCheck, { backgroundColor: colors.primary, boxShadow: boxShadow(colors.primary, 4, 8, 0.5) }]}>
                   <Ionicons name="checkmark" size={20} color="#fff" />
                 </View>
               )}
@@ -580,15 +581,15 @@ export default function RegisterScreen() {
           {/* Footer Navigation */}
           <View style={s.footer}>
             {step === 0 ? (
-              <TouchableOpacity style={[s.primaryBtn, { shadowColor: colors.primary }]} onPress={handleNext} activeOpacity={0.8}>
+              <TouchableOpacity style={[s.primaryBtn, { boxShadow: boxShadow(colors.primary, 8, 12, 0.3) }]} onPress={handleNext} activeOpacity={0.8}>
                 <LinearGradient colors={[colors.primary, colors.secondary]} start={[0,0]} end={[1,0]} style={s.btnGradient}>
                   <Text style={s.btnText}>Comenzar</Text>
                   <Ionicons name="arrow-forward" size={20} color="#fff" style={{ marginLeft: 8 }} />
                 </LinearGradient>
               </TouchableOpacity>
             ) : step === 7 ? (
-              <TouchableOpacity 
-                style={[s.primaryBtn, { shadowColor: colors.primary }]} 
+              <TouchableOpacity
+                style={[s.primaryBtn, { boxShadow: boxShadow(colors.primary, 8, 12, 0.3) }]}
                 onPress={async () => {
                   const rulesAccepted = await AsyncStorage.getItem('debuta_rules_accepted');
                   router.replace(rulesAccepted ? '/(tabs)' : '/rules');
@@ -601,7 +602,7 @@ export default function RegisterScreen() {
               </TouchableOpacity>
             ) : (
               <TouchableOpacity 
-                style={[s.primaryBtn, { shadowColor: colors.primary }, (loading || (step === 6 && !acceptedTerms)) && s.btnDisabled]} 
+                style={[s.primaryBtn, { boxShadow: boxShadow(colors.primary, 8, 12, 0.3) }, (loading || (step === 6 && !acceptedTerms)) && s.btnDisabled]}
                 onPress={step === 6 ? handleFinalRegister : handleNext}
                 disabled={loading || (step === 6 && !acceptedTerms)}
                 activeOpacity={0.8}
@@ -736,7 +737,6 @@ const s = StyleSheet.create({
     position: 'absolute', bottom: 16, right: 16,
     width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center',
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 8,
   },
 
   termsWrapper: { flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingRight: 20 },
@@ -754,7 +754,6 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 30,
-    shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 10,
   },
   welcomeTitle: { fontSize: 32, fontWeight: '900', textAlign: 'center', marginBottom: 15 },
   welcomeSubtitle: { fontSize: 16, textAlign: 'center', lineHeight: 24, paddingHorizontal: 20 },
@@ -772,7 +771,7 @@ const s = StyleSheet.create({
   errorText: { fontSize: 13, fontWeight: '600', flex: 1 },
 
   footer: { padding: 25, paddingBottom: Platform.OS === 'ios' ? 40 : 25 },
-  primaryBtn: { height: 60, borderRadius: 18, overflow: 'hidden', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
+  primaryBtn: { height: 60, borderRadius: 18, overflow: 'hidden' },
   btnGradient: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   btnText: { color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: 0.5 },
   btnDisabled: { opacity: 0.5 },
