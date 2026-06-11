@@ -1,5 +1,7 @@
 const router = require('express').Router();
 const {
+  enviarCodigoVerif,
+  verificarCodigoEmail,
   register,
   discover,
   obtenerPerfil,
@@ -17,6 +19,8 @@ const { verificarToken } = require('../middlewares/auth.middleware');
 const { uploadSingle, uploadMultiple } = require('../middlewares/upload.middleware');
 
 // ── Públicas ──────────────────────────────────────────────────────────────────
+router.post('/send-verification-code', enviarCodigoVerif);      // POST /api/users/send-verification-code
+router.post('/verify-email-code', verificarCodigoEmail);        // POST /api/users/verify-email-code
 router.post('/register', register);                             // POST /api/users/register
 
 // ── Protegidas ────────────────────────────────────────────────────────────────

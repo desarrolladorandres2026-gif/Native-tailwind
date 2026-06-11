@@ -146,6 +146,20 @@ export const authService = {
     await AsyncStorage.multiRemove(['access_token', 'user_id', 'usuario', 'user_role', 'user_name', 'user_photo']);
   },
 
+  /**
+   * Envía un código de verificación de 6 dígitos al correo indicado (paso previo al registro).
+   */
+  async sendEmailVerificationCode(correo: string, nombre: string): Promise<void> {
+    await api.post('/users/send-verification-code', { correo, nombre });
+  },
+
+  /**
+   * Verifica el código OTP ingresado por el usuario para el correo dado.
+   */
+  async verifyEmailCode(correo: string, codigo: string): Promise<void> {
+    await api.post('/users/verify-email-code', { correo, codigo });
+  },
+
   async isAuthenticated(): Promise<boolean> {
     const token = await AsyncStorage.getItem('access_token');
     return !!token;

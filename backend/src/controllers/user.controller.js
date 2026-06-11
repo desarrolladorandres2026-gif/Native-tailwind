@@ -17,6 +17,77 @@ const {
   uploadGalleryPhoto,
   deleteImage,
 } = require('../helpers/cloudinary');
+const { enviarCodigoVerificacionRegistro } = require('../helpers/mailer');
+
+// Almacén temporal en memoria para códigos de verificación de correo
+// key: correo, value: { code, expiresAt, intentos, verified }
+const verificationCodes = new Map();
+
+// ── POST /api/users/send-verification-code ────────────────────────────────────
+const enviarCodigoVerif = async (req, res) => {
+  try {
+    const { correo, nombre } = req.body;
+    if (!correo) return res.status(400).json({ message: 'El correo es obligatorio' });
+
+    const correoNorm = correo.trim().toLowerCase();
+
+    if (await Usuario.findOne({ correo: correoNorm })) {
+      return res.status(400).json({ message: 'Este correo ya está registrado' });
+    }
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutos
+
+    verificationCodes.set(correoNorm, { code, expiresAt, intentos: 0, verified: false });
+
+    await enviarCodigoVerificacionRegistro(correoNorm, nombre?.trim() || 'Usuario', code);
+
+    res.json({ message: 'Código enviado correctamente' });
+  } catch (err) {
+    console.error('enviarCodigoVerif:', err);
+    res.status(500).json({ message: 'Error al enviar el código de verificación' });
+  }
+};
+
+// ── POST /api/users/verify-email-code ─────────────────────────────────────────
+const verificarCodigoEmail = async (req, res) => {
+  try {
+    const { correo, codigo } = req.body;
+    if (!correo || !codigo) {
+      return res.status(400).json({ message: 'Correo y código son obligatorios' });
+    }
+
+    const correoNorm = correo.trim().toLowerCase();
+    const entry = verificationCodes.get(correoNorm);
+
+    if (!entry) {
+      return res.status(400).json({ message: 'No hay un código activo para este correo. Solicita uno nuevo.' });
+    }
+
+    if (Date.now() > entry.expiresAt) {
+      verificationCodes.delete(correoNorm);
+      return res.status(400).json({ message: 'El código ha expirado. Solicita uno nuevo.' });
+    }
+
+    entry.intentos += 1;
+    if (entry.intentos > 5) {
+      verificationCodes.delete(correoNorm);
+      return res.status(429).json({ message: 'Demasiados intentos fallidos. Solicita un nuevo código.' });
+    }
+
+    if (entry.code !== codigo.trim()) {
+      return res.status(400).json({ message: 'Código incorrecto. Verifica e intenta de nuevo.' });
+    }
+
+    entry.verified = true;
+    verificationCodes.set(correoNorm, entry);
+
+    res.json({ message: 'Correo verificado correctamente' });
+  } catch (err) {
+    console.error('verificarCodigoEmail:', err);
+    res.status(500).json({ message: 'Error al verificar el código' });
+  }
+};
 
 // ── POST /api/users/register ──────────────────────────────────────────────────
 const register = async (req, res) => {
@@ -42,6 +113,12 @@ const register = async (req, res) => {
     if (await Usuario.findOne({ correo: correoNorm })) {
       return res.status(400).json({ errores: ['Este correo ya está registrado'] });
     }
+
+    const codeEntry = verificationCodes.get(correoNorm);
+    if (!codeEntry || !codeEntry.verified) {
+      return res.status(400).json({ errores: ['El correo no ha sido verificado. Por favor verifica tu correo antes de continuar.'] });
+    }
+    verificationCodes.delete(correoNorm);
 
     const usernameBase = nombre.trim().toLowerCase().replace(/\s+/g, '_');
     let username;
@@ -548,6 +625,8 @@ const eliminarCuenta = async (req, res) => {
 };
 
 module.exports = {
+  enviarCodigoVerif,
+  verificarCodigoEmail,
   register,
   discover,
   obtenerPerfil,

@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useAuth } from '../hooks/useAuth';
 import { useCustomAlert } from '../hooks/useCustomAlert';
+import { authService } from '../components/services/authService';
 import StepIndicator from '../components/registration/StepIndicator';
 import { getAge } from '../components/utils/age';
 import { boxShadow } from '../components/utils/shadow';
@@ -67,6 +68,13 @@ export default function RegisterScreen() {
   const [confirmar, setConfirmar] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
+  // Email verification states
+  const [verificationCode, setVerificationCode] = useState('');
+  const [emailCodeLoading, setEmailCodeLoading] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+  const otpRef = useRef<TextInput | null>(null);
+  const resendIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // UI States
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -80,19 +88,35 @@ export default function RegisterScreen() {
 
   // 0: Bienvenida
   // 1: Identidad
-  // 2: Edad y Género
-  // 3: Ciudad y Bio
-  // 4: Intereses y Objetivo
-  // 5: Foto
-  // 6: Seguridad
-  // 7: Verificación (Éxito)
-  const totalSteps = 8; 
+  // 2: Verificación de correo (NUEVO)
+  // 3: Edad y Género
+  // 4: Ciudad y Bio
+  // 5: Intereses y Objetivo
+  // 6: Foto
+  // 7: Seguridad
+  // 8: Éxito
+  const totalSteps = 9;
+
+  const startResendTimer = (seconds = 60) => {
+    setResendTimer(seconds);
+    if (resendIntervalRef.current) clearInterval(resendIntervalRef.current);
+    resendIntervalRef.current = setInterval(() => {
+      setResendTimer(t => {
+        if (t <= 1) {
+          clearInterval(resendIntervalRef.current!);
+          resendIntervalRef.current = null;
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+  };
 
   useEffect(() => {
-    // Normalizamos el step visual para el progress indicator (ignora Bienvenida=0 y Éxito=7)
+    // Normalizamos el step visual para el progress indicator (ignora Bienvenida=0 y Éxito=8)
     let visualStep = step - 1;
     if (visualStep < 0) visualStep = 0;
-    if (visualStep > 5) visualStep = 5;
+    if (visualStep > 6) visualStep = 6;
 
     // Animar progreso
     Animated.spring(progressAnim, {
@@ -110,7 +134,7 @@ export default function RegisterScreen() {
       Animated.spring(slideAnim, { toValue: 0, tension: 60, friction: 10, useNativeDriver: true }),
     ]).start();
 
-    if (step === 7) {
+    if (step === 8) {
       Animated.spring(checkAnim, {
         toValue: 1,
         tension: 30,
@@ -118,14 +142,28 @@ export default function RegisterScreen() {
         useNativeDriver: true,
       }).start();
     }
+
+    // Auto-focus en el campo OTP al entrar al step de verificación
+    if (step === 2) {
+      const t = setTimeout(() => otpRef.current?.focus(), 400);
+      return () => clearTimeout(t);
+    }
   }, [step]);
+
+  // Limpiar el intervalo de cuenta regresiva al desmontar
+  useEffect(() => {
+    return () => {
+      if (resendIntervalRef.current) clearInterval(resendIntervalRef.current);
+    };
+  }, []);
 
   const validateStep = () => {
     setIsValidationActive(true);
     switch (step) {
       case 0: return true;
       case 1: return nombre.trim().length >= 2 && apellido.trim().length >= 2 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim());
-      case 2: {
+      case 2: return verificationCode.length === 6;
+      case 3: {
         if (!fechaNacimiento || !genero) return false;
         const age = getAge(fechaNacimiento.toISOString());
         if (age === null || age < 18) {
@@ -139,23 +177,98 @@ export default function RegisterScreen() {
         }
         return true;
       }
-      case 3: return ciudad.trim().length >= 3 && biografia.trim().length >= 10;
-      case 4: return intereses.length >= 3 && buscando !== '';
-      case 5: return foto !== null;
-      case 6: return password.length >= 6 && password === confirmar && telefono.length >= 10 && acceptedTerms;
+      case 4: return ciudad.trim().length >= 3 && biografia.trim().length >= 10;
+      case 5: return intereses.length >= 3 && buscando !== '';
+      case 6: return foto !== null;
+      case 7: return password.length >= 6 && password === confirmar && telefono.length >= 10 && acceptedTerms;
       default: return true;
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (validateStep()) {
       Keyboard.dismiss();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      setStep(s => Math.min(s + 1, totalSteps - 1));
-      setIsValidationActive(false);
-      clearError();
+
+      if (step === 1) {
+        // Enviar código de verificación al correo antes de avanzar
+        setEmailCodeLoading(true);
+        try {
+          await authService.sendEmailVerificationCode(correo.trim().toLowerCase(), nombre.trim());
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          setStep(2);
+          setVerificationCode('');
+          startResendTimer();
+          setIsValidationActive(false);
+          clearError();
+        } catch (err: any) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          showAlert({
+            title: 'Error al enviar código',
+            message: err.message || 'No se pudo enviar el código. Intenta de nuevo.',
+            icon: 'mail-outline',
+            iconColor: colors.error,
+          });
+        } finally {
+          setEmailCodeLoading(false);
+        }
+      } else {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setStep(s => Math.min(s + 1, totalSteps - 1));
+        setIsValidationActive(false);
+        clearError();
+      }
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (verificationCode.trim().length !== 6) {
+      setIsValidationActive(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
+    setEmailCodeLoading(true);
+    try {
+      await authService.verifyEmailCode(correo.trim().toLowerCase(), verificationCode);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setStep(3);
+      setIsValidationActive(false);
+      clearError();
+    } catch (err: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      showAlert({
+        title: 'Código inválido',
+        message: err.message || 'El código ingresado no es correcto o ha expirado.',
+        icon: 'close-circle-outline',
+        iconColor: colors.error,
+      });
+    } finally {
+      setEmailCodeLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setEmailCodeLoading(true);
+    try {
+      await authService.sendEmailVerificationCode(correo.trim().toLowerCase(), nombre.trim());
+      setVerificationCode('');
+      startResendTimer();
+      showAlert({
+        title: 'Código reenviado',
+        message: `Se envió un nuevo código a ${correo}`,
+        icon: 'mail-outline',
+        iconColor: colors.primary,
+      });
+    } catch (err: any) {
+      showAlert({
+        title: 'Error',
+        message: err.message || 'No se pudo reenviar el código.',
+        icon: 'alert-circle-outline',
+        iconColor: colors.error,
+      });
+    } finally {
+      setEmailCodeLoading(false);
     }
   };
 
@@ -163,8 +276,17 @@ export default function RegisterScreen() {
     Keyboard.dismiss();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (step === 0) router.back();
-    else if (step === 7) return; // En éxito no se vuelve atrás
+    else if (step === 8) return; // En éxito no se vuelve atrás
     else {
+      if (step === 2) {
+        // Limpiar estado de verificación al volver al paso de identidad
+        setVerificationCode('');
+        if (resendIntervalRef.current) {
+          clearInterval(resendIntervalRef.current);
+          resendIntervalRef.current = null;
+        }
+        setResendTimer(0);
+      }
       setStep(s => s - 1);
       setIsValidationActive(false);
       clearError();
@@ -228,7 +350,7 @@ export default function RegisterScreen() {
       },
       async () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setStep(7); // Ir a la pantalla de éxito
+        setStep(8); // Ir a la pantalla de éxito
       }
     );
   };
@@ -291,7 +413,84 @@ export default function RegisterScreen() {
           </>
         );
 
-      case 2: // Edad y Género
+      case 2: // Verificación de correo
+        return (
+          <>
+            <Text style={[s.stepTitle, { color: colors.text }]}>Verifica tu correo</Text>
+            <Text style={[s.stepSub, { color: colors.textLight }]}>
+              Enviamos un código de 6 dígitos a{'\n'}
+              <Text style={{ color: colors.primary, fontWeight: '700' }}>{correo}</Text>
+            </Text>
+
+            {/* OTP boxes */}
+            <View style={{ alignItems: 'center', marginVertical: 30 }}>
+              <View style={{ position: 'relative' }}>
+                <View style={s.otpRow}>
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <View
+                      key={i}
+                      style={[
+                        s.otpBox,
+                        { backgroundColor: colors.inputBg, borderColor: colors.glassBorder },
+                        verificationCode.length === i && { borderColor: colors.primary, borderWidth: 2 },
+                        i < verificationCode.length && { borderColor: `${colors.primary}80` },
+                        isValidationActive && verificationCode.length < 6 && { borderColor: colors.error },
+                      ]}
+                    >
+                      {verificationCode[i] ? (
+                        <Text style={[s.otpDigit, { color: colors.text }]}>{verificationCode[i]}</Text>
+                      ) : (
+                        verificationCode.length === i && (
+                          <View style={[s.otpCursor, { backgroundColor: colors.primary }]} />
+                        )
+                      )}
+                    </View>
+                  ))}
+                </View>
+                <TextInput
+                  ref={otpRef}
+                  value={verificationCode}
+                  onChangeText={v => setVerificationCode(v.replace(/\D/g, '').slice(0, 6))}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  caretHidden
+                  style={[StyleSheet.absoluteFillObject, { opacity: 0 }]}
+                />
+              </View>
+            </View>
+
+            {/* Reenviar código */}
+            <View style={{ alignItems: 'center', gap: 12 }}>
+              {resendTimer > 0 ? (
+                <Text style={[s.otpResendText, { color: colors.textLight }]}>
+                  Puedes reenviar el código en {resendTimer}s
+                </Text>
+              ) : (
+                <TouchableOpacity onPress={handleResendCode} disabled={emailCodeLoading} activeOpacity={0.7}>
+                  <Text style={[s.otpResendText, { color: colors.primary, fontWeight: '700' }]}>
+                    Reenviar código
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={() => {
+                  setStep(1);
+                  setVerificationCode('');
+                  if (resendIntervalRef.current) {
+                    clearInterval(resendIntervalRef.current);
+                    resendIntervalRef.current = null;
+                  }
+                  setResendTimer(0);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[s.otpResendText, { color: colors.textDim }]}>Cambiar correo electrónico</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        );
+
+      case 3: // Edad y Género
         return (
           <>
             <Text style={[s.stepTitle, { color: colors.text }]}>Sobre Ti</Text>
@@ -340,7 +539,7 @@ export default function RegisterScreen() {
           </>
         );
 
-      case 3: // Ciudad y Bio
+      case 4: // Ciudad y Bio
         return (
           <>
             <Text style={[s.stepTitle, { color: colors.text }]}>Tu Esencia</Text>
@@ -372,7 +571,7 @@ export default function RegisterScreen() {
           </>
         );
 
-      case 4: // Intereses y Objetivo
+      case 5: // Intereses y Objetivo
         return (
           <>
             <Text style={[s.stepTitle, { color: colors.text }]}>Conexiones</Text>
@@ -414,7 +613,7 @@ export default function RegisterScreen() {
           </>
         );
 
-      case 5: // Foto
+      case 6: // Foto
         return (
           <>
             <Text style={[s.stepTitle, { color: colors.text }]}>Primera Impresión</Text>
@@ -441,7 +640,7 @@ export default function RegisterScreen() {
           </>
         );
 
-      case 6: // Seguridad
+      case 7: // Seguridad
         return (
           <>
             <Text style={[s.stepTitle, { color: colors.text }]}>Seguridad</Text>
@@ -503,7 +702,7 @@ export default function RegisterScreen() {
           </>
         );
 
-      case 7: // Verificación (Éxito)
+      case 8: // Verificación (Éxito)
         return (
           <View style={s.successContainer}>
             <Animated.View style={[s.successIconWrap, { transform: [{ scale: checkAnim }] }]}>
@@ -539,15 +738,15 @@ export default function RegisterScreen() {
         >
           
           {/* Header (No se muestra en Bienvenida ni en Éxito) */}
-          {step > 0 && step < 7 && (
+          {step > 0 && step < 8 && (
             <View style={s.header}>
               <TouchableOpacity onPress={handleBack} style={[s.backBtn, { backgroundColor: colors.card, borderColor: colors.glassBorder }]} activeOpacity={0.7}>
                 <Ionicons name="arrow-back" size={24} color={colors.text} />
               </TouchableOpacity>
               <View style={s.progressWrap}>
-                <StepIndicator 
-                  currentStep={step - 1} 
-                  totalSteps={6} 
+                <StepIndicator
+                  currentStep={step - 1}
+                  totalSteps={7}
                   progress={progressAnim}
                   activeColor={colors.primary}
                   inactiveColor={colors.glassBorder}
@@ -558,7 +757,7 @@ export default function RegisterScreen() {
           )}
 
           {/* Error Box */}
-          {error && step < 7 && (
+          {error && step < 8 && (
             <View style={[s.errorBox, { backgroundColor: `${colors.error}15` }]}>
               <Ionicons name="alert-circle" size={20} color={colors.error} />
               <Text style={[s.errorText, { color: colors.error }]}>{error}</Text>
@@ -587,13 +786,13 @@ export default function RegisterScreen() {
                   <Ionicons name="arrow-forward" size={20} color="#fff" style={{ marginLeft: 8 }} />
                 </LinearGradient>
               </TouchableOpacity>
-            ) : step === 7 ? (
+            ) : step === 8 ? (
               <TouchableOpacity
                 style={[s.primaryBtn, { boxShadow: boxShadow(colors.primary, 8, 12, 0.3) }]}
                 onPress={async () => {
                   const rulesAccepted = await AsyncStorage.getItem('debuta_rules_accepted');
                   router.replace(rulesAccepted ? '/(tabs)' : '/rules');
-                }} 
+                }}
                 activeOpacity={0.8}
               >
                 <LinearGradient colors={[colors.primary, colors.secondary]} start={[0,0]} end={[1,0]} style={s.btnGradient}>
@@ -601,22 +800,24 @@ export default function RegisterScreen() {
                 </LinearGradient>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity 
-                style={[s.primaryBtn, { boxShadow: boxShadow(colors.primary, 8, 12, 0.3) }, (loading || (step === 6 && !acceptedTerms)) && s.btnDisabled]}
-                onPress={step === 6 ? handleFinalRegister : handleNext}
-                disabled={loading || (step === 6 && !acceptedTerms)}
+              <TouchableOpacity
+                style={[s.primaryBtn, { boxShadow: boxShadow(colors.primary, 8, 12, 0.3) }, (loading || emailCodeLoading || (step === 7 && !acceptedTerms)) && s.btnDisabled]}
+                onPress={step === 7 ? handleFinalRegister : step === 2 ? handleVerifyCode : handleNext}
+                disabled={loading || emailCodeLoading || (step === 7 && !acceptedTerms)}
                 activeOpacity={0.8}
               >
-                <LinearGradient 
-                  colors={step === 6 ? [colors.primary, colors.secondary] : [colors.card, colors.card]} 
-                  start={[0,0]} end={[1,0]} style={[s.btnGradient, step !== 6 && { borderWidth: 1, borderColor: colors.glassBorder }]}
+                <LinearGradient
+                  colors={(step === 7 || step === 2) ? [colors.primary, colors.secondary] : [colors.card, colors.card]}
+                  start={[0,0]} end={[1,0]} style={[s.btnGradient, (step !== 7 && step !== 2) && { borderWidth: 1, borderColor: colors.glassBorder }]}
                 >
-                  {loading ? (
-                    <ActivityIndicator color={colors.primary} />
+                  {(loading || emailCodeLoading) ? (
+                    <ActivityIndicator color={(step === 7 || step === 2) ? '#fff' : colors.primary} />
                   ) : (
                     <>
-                      <Text style={[s.btnText, step !== 6 && { color: colors.text }]}>{step === 6 ? 'Finalizar Registro' : 'Continuar'}</Text>
-                      {step !== 6 && <Ionicons name="arrow-forward" size={20} color={colors.text} style={{ marginLeft: 8 }} />}
+                      <Text style={[s.btnText, (step !== 7 && step !== 2) && { color: colors.text }]}>
+                        {step === 7 ? 'Finalizar Registro' : step === 2 ? 'Verificar Código' : 'Continuar'}
+                      </Text>
+                      {(step !== 7 && step !== 2) && <Ionicons name="arrow-forward" size={20} color={colors.text} style={{ marginLeft: 8 }} />}
                     </>
                   )}
                 </LinearGradient>
@@ -778,4 +979,36 @@ const s = StyleSheet.create({
   loginLink: { marginTop: 20, alignItems: 'center' },
   loginText: { fontSize: 15 },
   loginTextBold: { fontWeight: '800' },
+
+  // OTP Verification
+  otpRow: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  otpBox: {
+    width: 46,
+    height: 56,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  otpDigit: {
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: 0,
+  },
+  otpCursor: {
+    width: 2,
+    height: 26,
+    borderRadius: 1,
+    opacity: 0.8,
+  },
+  otpResendText: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
 });
