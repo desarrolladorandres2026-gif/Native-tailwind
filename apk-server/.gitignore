@@ -1,2 +1,4 @@
 node_modules/
 apks/*.apk
+# La APK oficial sí se versiona para que el deploy la sirva en /download
+!apks/app-release.apk

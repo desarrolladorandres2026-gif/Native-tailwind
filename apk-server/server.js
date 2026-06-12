@@ -8,6 +8,12 @@ const app = express();
 const PORT = process.env.PORT || 3030;
 const BASE_URL = process.env.BASE_URL || null;
 
+// ── Panel de Administración ───────────────────────────────────────────────────
+const adminDir = path.join(__dirname, '../admin');
+app.use('/admin', express.static(adminDir));
+app.get('/admin', (_, res) => res.sendFile(path.join(adminDir, 'index.html')));
+app.get('/admin/*', (_, res) => res.sendFile(path.join(adminDir, 'index.html')));
+
 function getLocalIP() {
   const interfaces = os.networkInterfaces();
   const candidates = [];
@@ -508,9 +514,17 @@ app.get('/', async (req, res) => {
         </div>
         <span class="brand-name">Debuta</span>
       </div>
-      <div class="android-pill">
-        <span class="live-dot"></span>
-        Android APK
+      <div style="display:flex;align-items:center;gap:12px;">
+        <a href="/admin" style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:100px;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);font-size:12px;font-weight:600;color:rgba(124,58,237,.8);text-decoration:none;transition:all .2s;" onmouseover="this.style.background='rgba(124,58,237,.18)';this.style.color='#a78bfa'" onmouseout="this.style.background='rgba(124,58,237,.1)';this.style.color='rgba(124,58,237,.8)'">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          Admin
+        </a>
+        <div class="android-pill">
+          <span class="live-dot"></span>
+          Android APK
+        </div>
       </div>
     </nav>
 
