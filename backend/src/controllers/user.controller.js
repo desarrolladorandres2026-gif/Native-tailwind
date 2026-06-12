@@ -99,9 +99,12 @@ const register = async (req, res) => {
     } = req.body;
 
     const errores = [];
+    const telefonoNorm = String(telefono ?? '').replace(/\D/g, '');
     if (!nombre) errores.push('El nombre es obligatorio');
     if (!correo) errores.push('El correo es obligatorio');
     if (!telefono) errores.push('El teléfono es obligatorio');
+    else if (!/^\d{10}$/.test(telefonoNorm))
+      errores.push('El teléfono debe tener exactamente 10 dígitos');
     if (!password || password.length < 6)
       errores.push('La contraseña debe tener mínimo 6 caracteres');
     if (!genero) errores.push('El género es obligatorio');
@@ -145,7 +148,7 @@ const register = async (req, res) => {
       last_name: apellido?.trim() ?? '',
       username,
       correo: correoNorm,
-      telefono,
+      telefono: telefonoNorm,
       password,
       gender: genero,
       birth_date: new Date(fechaNacimiento),

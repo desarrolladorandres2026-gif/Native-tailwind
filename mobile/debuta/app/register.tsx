@@ -180,7 +180,7 @@ export default function RegisterScreen() {
       case 4: return ciudad.trim().length >= 3 && biografia.trim().length >= 10;
       case 5: return intereses.length >= 3 && buscando !== '';
       case 6: return foto !== null;
-      case 7: return password.length >= 6 && password === confirmar && telefono.length >= 10 && acceptedTerms;
+      case 7: return password.length >= 6 && password === confirmar && telefono.length === 10 && acceptedTerms;
       default: return true;
     }
   };
@@ -648,12 +648,14 @@ export default function RegisterScreen() {
 
             <View style={s.inputGroup}>
               <Text style={[s.label, { color: colors.textDim }]}>Teléfono</Text>
-              <View style={[s.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.glassBorder }, isValidationActive && telefono.length < 10 && { borderColor: colors.error, backgroundColor: `${colors.error}10` }]}>
+              <View style={[s.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.glassBorder }, isValidationActive && telefono.length !== 10 && { borderColor: colors.error, backgroundColor: `${colors.error}10` }]}>
                 <Ionicons name="call-outline" size={20} color={colors.textLight} />
-                <TextInput 
-                  style={[s.input, { color: colors.text }]} placeholder="Tu número móvil"
-                  value={telefono} onChangeText={setTelefono}
+                <TextInput
+                  style={[s.input, { color: colors.text }]} placeholder="Tu número móvil (10 dígitos)"
+                  value={telefono}
+                  onChangeText={(t) => setTelefono(t.replace(/\D/g, '').slice(0, 10))}
                   keyboardType="phone-pad" placeholderTextColor={colors.textLight}
+                  maxLength={10}
                 />
               </View>
             </View>
