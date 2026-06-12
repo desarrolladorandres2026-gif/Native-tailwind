@@ -114,7 +114,7 @@ export default function LikesScreen() {
       <View style={s.header}>
         <View>
           <Text style={[s.logo, { color: colors.primary }]}>Debuta</Text>
-          <Text style={[s.subtitle, { color: colors.text }]}>Te gustaron</Text>
+          <Text style={[s.subtitle, { color: colors.text }]}>Les gustaste a</Text>
         </View>
       </View>
 

@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import {
   Modal, View, Text, TouchableOpacity, StyleSheet,
   TextInput, ActivityIndicator, Alert, ScrollView,
+  KeyboardAvoidingView, Platform, Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../services/api';
@@ -30,17 +31,23 @@ export default function ReportModal({ visible, userId, userName, onClose, onRepo
 
   const handleReport = async () => {
     if (!motivo) return Alert.alert('Atención', 'Elige un motivo');
+    Keyboard.dismiss();
     setSending(true);
     try {
       await api.post(`/report/${userId}`, { motivo, descripcion });
       onClose();
       onReported?.();
     } catch (e: any) {
+      Alert.alert('Error', e?.message || 'No se pudo enviar el reporte. Intenta de nuevo.');
     } finally { setSending(false); }
   };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
       <View style={s.overlay}>
         <View style={s.sheet}>
           <View style={s.handle} />
@@ -84,6 +91,7 @@ export default function ReportModal({ visible, userId, userName, onClose, onRepo
           </ScrollView>
         </View>
       </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

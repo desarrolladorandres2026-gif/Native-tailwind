@@ -180,7 +180,7 @@ const initSocket = (server) => {
         if (!match.recomendacion?.restauranteId) {
           const totalMensajes = await Mensaje.countDocuments({ matchId: match._id });
 
-          if (totalMensajes === 5) {
+          if (totalMensajes >= 5) {
             // Buscar un restaurante activo con al menos nombre
             const restaurantes = await Restaurante.find({
               activo: true,

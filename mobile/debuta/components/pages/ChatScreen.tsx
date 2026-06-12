@@ -5,7 +5,7 @@ import {
   TextInput, Image, ActivityIndicator,
   KeyboardAvoidingView, Platform, StatusBar,
   Keyboard, Pressable, Animated,
-  Alert,
+  Alert, Modal, Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -323,6 +323,56 @@ function MessageBubble({ msg, isMe, colors, isDark }: { msg: any; isMe: boolean;
   );
 }
 
+// ── Vista previa de foto de perfil (estilo WhatsApp) ──────────────────────────
+function PhotoPreviewModal({
+  visible, photo, name, onClose, onCall, onVideoCall, colors, isDark,
+}: {
+  visible: boolean;
+  photo?: string;
+  name?: string;
+  onClose: () => void;
+  onCall: () => void;
+  onVideoCall: () => void;
+  colors: any;
+  isDark: boolean;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+      <Pressable style={pp.backdrop} onPress={onClose}>
+        {/* Pressable vacío para que tocar la tarjeta no cierre el modal */}
+        <Pressable onPress={() => {}}>
+          <View style={pp.card}>
+            <View>
+              <Image
+                source={{ uri: photo || 'https://via.placeholder.com/300' }}
+                style={pp.image}
+                resizeMode="cover"
+              />
+              <LinearGradient
+                colors={['rgba(0,0,0,0.65)', 'transparent']}
+                style={pp.nameBar}
+              >
+                <Text style={pp.nameText} numberOfLines={1}>{name}</Text>
+              </LinearGradient>
+            </View>
+            <View style={[pp.actions, { backgroundColor: isDark ? '#1A1626' : '#FFFFFF' }]}>
+              <TouchableOpacity style={pp.actionBtn} onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="chatbubble-ellipses" size={24} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity style={pp.actionBtn} onPress={onCall} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="call" size={24} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity style={pp.actionBtn} onPress={onVideoCall} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="videocam" size={26} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 // ── Pantalla principal ─────────────────────────────────────────────────────────
 export default function ChatScreen() {
   const { colors, isDark } = useTheme();
@@ -338,6 +388,7 @@ export default function ChatScreen() {
   const [input,  setInput]  = useState('');
   const [streak, setStreak] = useState(Number(streakParam ?? 0));
   const [showEmoji, setShowEmoji] = useState(false);
+  const [showPhotoPreview, setShowPhotoPreview] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const listRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
@@ -486,10 +537,18 @@ export default function ChatScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity style={s.headerUser} activeOpacity={0.8}>
-            <View style={s.avatarWrap}>
+            <TouchableOpacity
+              style={s.avatarWrap}
+              activeOpacity={0.8}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                Keyboard.dismiss();
+                setShowPhotoPreview(true);
+              }}
+            >
               <Image source={{ uri: photo || 'https://via.placeholder.com/150' }} style={s.headerAvatar} />
               {online && <View style={[s.onlineDot, { backgroundColor: colors.success }]} />}
-            </View>
+            </TouchableOpacity>
             <View style={s.headerInfo}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={[s.headerName, { color: colors.text }]} numberOfLines={1}>{name}</Text>
@@ -628,9 +687,56 @@ export default function ChatScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* ── Vista previa de foto de perfil ──────────────────────────────────── */}
+      <PhotoPreviewModal
+        visible={showPhotoPreview}
+        photo={photo}
+        name={name}
+        onClose={() => setShowPhotoPreview(false)}
+        onCall={() => { setShowPhotoPreview(false); handleStartCall(false); }}
+        onVideoCall={() => { setShowPhotoPreview(false); handleStartCall(true); }}
+        colors={colors}
+        isDark={isDark}
+      />
     </View>
   );
 }
+
+// ── Estilos de la vista previa de foto ────────────────────────────────────────
+const { width: SCREEN_W } = Dimensions.get('window');
+const PREVIEW_W = Math.min(SCREEN_W * 0.72, 320);
+
+const pp = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  card: {
+    width: PREVIEW_W,
+    borderRadius: 18,
+    overflow: 'hidden',
+    boxShadow: boxShadow('#000', 10, 30, 0.4),
+  },
+  image: { width: PREVIEW_W, height: PREVIEW_W, backgroundColor: '#222' },
+  nameBar: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 26,
+  },
+  nameText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: 12,
+  },
+  actionBtn: { padding: 8 },
+});
 
 const s = StyleSheet.create({
   root: { flex: 1 },

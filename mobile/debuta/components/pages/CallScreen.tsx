@@ -47,7 +47,8 @@ export default function CallScreen() {
   const [currentType, setCurrentType] = useState(type);
   const [timer, setTimer] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
-  const [isSpeaker, setIsSpeaker] = useState(false);
+  // El hook fuerza altavoz al iniciar videollamadas; reflejarlo en la UI
+  const [isSpeaker, setIsSpeaker] = useState(isVideo === 'true');
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
 
@@ -173,7 +174,7 @@ export default function CallScreen() {
       {/* ── Fondo: video remoto o foto ────────────────────────────────────── */}
       {showVideo && remoteStream && RTCView ? (
         <RTCView
-          stream={remoteStream}
+          streamURL={remoteStream.toURL()}
           style={StyleSheet.absoluteFill}
           objectFit="cover"
           mirror={false}
@@ -252,7 +253,7 @@ export default function CallScreen() {
           {showVideo && localStream && isConnected && RTCView && (
             <View style={s.localVideoContainer}>
               <RTCView
-                stream={localStream}
+                streamURL={localStream.toURL()}
                 style={s.localVideo}
                 objectFit="cover"
                 mirror

@@ -111,12 +111,36 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => clearTimeout(t);
   }, []);
 
+  // Timeout de "sin respuesta" de la llamada saliente en curso
+  const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearCallTimeout = useCallback(() => {
+    if (callTimeoutRef.current) {
+      clearTimeout(callTimeoutRef.current);
+      callTimeoutRef.current = null;
+    }
+  }, []);
+
   // ── Reset de guards al limpiar ────────────────────────────────────────
   const fullCleanup = useCallback(() => {
     acceptingRef.current  = false;
     initiatingRef.current = false;
+    clearCallTimeout();
     rtcCleanup();
-  }, [rtcCleanup]);
+  }, [rtcCleanup, clearCallTimeout]);
+
+  // ── Terminar llamada ──────────────────────────────────────────────────
+  const endCall = useCallback(() => {
+    if (!socket) return;
+    const targetId = activeCall?.fromId || incomingCall?.fromId;
+    if (!targetId) return;
+    stopRingtone();
+    socket.emit('call:end', { paraId: targetId });
+    fullCleanup();
+    setActiveCall(null);
+    setIncomingCall(null);
+    setIsOutgoing(false);
+    try { if (router.canGoBack()) router.back(); } catch {}
+  }, [socket, activeCall, incomingCall, stopRingtone, fullCleanup]);
 
   // ── Escuchar eventos del socket ───────────────────────────────────────
   useEffect(() => {
@@ -158,6 +182,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sdpLength: data.signalData?.sdp?.length ?? 0,
       }));
       stopRingtone();
+      clearCallTimeout();
 
       // Establecer la respuesta SDP del receptor en nuestro PeerConnection
       if (data.signalData?.type === 'answer' && data.signalData?.sdp) {
@@ -265,7 +290,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socket.off('call:signal',      handleSignal);
       socket.off('call:waiting',     handleWaiting);
     };
-  }, [socket, playRingtone, stopRingtone, setRemoteAnswer, addIceCandidate, fullCleanup]);
+  }, [socket, playRingtone, stopRingtone, setRemoteAnswer, addIceCandidate, fullCleanup, clearCallTimeout]);
 
   // ── Iniciar llamada saliente ───────────────────────────────────────────
   const initiateCall = useCallback(async (
@@ -318,8 +343,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('📡 [CALL] call:request emitido con SDP real. type:', offer.type);
       initiatingRef.current = false;
 
-      // Timeout de 30s si no hay respuesta
-      setTimeout(() => {
+      // Timeout de 30s si no hay respuesta (se cancela al aceptar/rechazar/colgar)
+      clearCallTimeout();
+      callTimeoutRef.current = setTimeout(() => {
+        callTimeoutRef.current = null;
         if (isOutgoingRef.current && activeCallRef.current?.fromId === toId) {
           endCall();
           Alert.alert('Sin respuesta', 'El usuario no respondió la llamada.');
@@ -361,7 +388,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
       }
     }
-  }, [socket, playRingtone, stopRingtone, createOffer, fullCleanup, endCall]);
+  }, [socket, playRingtone, stopRingtone, createOffer, fullCleanup, endCall, clearCallTimeout]);
 
   // ── Aceptar llamada entrante ───────────────────────────────────────────
   const acceptCall = useCallback(async () => {
@@ -463,20 +490,6 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIncomingCall(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }, [socket, incomingCall, stopRingtone, fullCleanup]);
-
-  // ── Terminar llamada ──────────────────────────────────────────────────
-  const endCall = useCallback(() => {
-    if (!socket) return;
-    const targetId = activeCall?.fromId || incomingCall?.fromId;
-    if (!targetId) return;
-    stopRingtone();
-    socket.emit('call:end', { paraId: targetId });
-    fullCleanup();
-    setActiveCall(null);
-    setIncomingCall(null);
-    setIsOutgoing(false);
-    try { if (router.canGoBack()) router.back(); } catch {}
-  }, [socket, activeCall, incomingCall, stopRingtone, fullCleanup]);
 
   const value = useMemo(() => ({
     incomingCall,

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ScrollView, Switch, ActivityIndicator,
-  StatusBar, Modal, TextInput, KeyboardAvoidingView, Platform,
+  StatusBar, Modal, TextInput, KeyboardAvoidingView, Platform, Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -52,6 +52,7 @@ function SupportModal({
   const handleClose = () => { reset(); onClose(); };
 
   const handleSend = async () => {
+    Keyboard.dismiss();
     setErrorMsg('');
     if (!categoria)                    return setErrorMsg('Selecciona una categoría.');
     if (asunto.trim().length < 5)      return setErrorMsg('El asunto necesita al menos 5 caracteres.');
@@ -76,7 +77,7 @@ function SupportModal({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={sp.overlay}>
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={handleClose} />

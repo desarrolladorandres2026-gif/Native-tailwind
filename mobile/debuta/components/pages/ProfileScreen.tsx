@@ -513,7 +513,7 @@ const s = StyleSheet.create({
   emptyText: { fontSize: 14, fontStyle: 'italic' },
 
   // Modal Styles
-  modalRoot: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  modalRoot: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.88)' },
   modalClose: { position: 'absolute', top: 60, right: 20, zIndex: 10 },
   modalContentAvatar: { width: W * 0.85, height: W * 0.85, justifyContent: 'center', alignItems: 'center' },
   modalContentCover: { width: W * 0.95, height: W * 0.95 * (9 / 16), justifyContent: 'center', alignItems: 'center' },
