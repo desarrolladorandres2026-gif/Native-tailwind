@@ -2,13 +2,13 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, Image, TouchableOpacity,
-  Dimensions, Animated, StatusBar, Platform,
+  Dimensions, Animated, StatusBar, Platform, BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 import Constants from 'expo-constants';
 import { useCall } from '../../context/CallContext';
 import * as Haptics from 'expo-haptics';
@@ -126,6 +126,19 @@ export default function CallScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     endCall();
   }, [endCall]);
+
+  // Botón "atrás" de Android: colgar correctamente en vez de abandonar la
+  // pantalla dejando la llamada (y el tono/audio) sonando en segundo plano.
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        handleEnd();
+        return true; // bloquear el pop por defecto; endCall ya navega atrás
+      };
+      const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => sub.remove();
+    }, [handleEnd])
+  );
 
   const handleAccept = useCallback(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -383,7 +396,7 @@ const s = StyleSheet.create({
   callerName: {
     fontSize: 30, fontWeight: '800', color: 'white',
     marginTop: 24, letterSpacing: -0.5,
-    textShadow: textShadow('rgba(0,0,0,0.5)', 2, 6),
+    ...textShadow('rgba(0,0,0,0.5)', 2, 6),
   },
   statusText: {
     fontSize: 17, color: 'rgba(255,255,255,0.65)',

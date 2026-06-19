@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../components/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage'; // usado en fetchProfile → setItem
+import { getToken } from '../components/services/tokenStorage';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -87,7 +88,7 @@ export function useProfile() {
   // ── Cargar perfil ────────────────────────────────────────────────────────────
   const fetchProfile = useCallback(async () => {
     // Guardia: no hacer fetch si no hay token (evita 401 al arrancar)
-    const token = await AsyncStorage.getItem('access_token').catch(() => null);
+    const token = await getToken();
     if (!token) {
       setLoading(false);
       return;
@@ -110,7 +111,7 @@ export function useProfile() {
 
   // ── Cargar stats ─────────────────────────────────────────────────────────────
   const fetchStats = useCallback(async () => {
-    const token = await AsyncStorage.getItem('access_token').catch(() => null);
+    const token = await getToken();
     if (!token) return;
     try {
       const data = await api.get<ProfileStats>('/users/me/stats');

@@ -360,7 +360,7 @@ const s = StyleSheet.create({
     letterSpacing: -0.5,
     textAlign: 'center',
     marginBottom: 8,
-    textShadow: textShadow('rgba(0,0,0,0.6)', 2, 8),
+    ...textShadow('rgba(0,0,0,0.6)', 2, 8),
   },
   subText: {
     color: 'rgba(255,255,255,0.55)',

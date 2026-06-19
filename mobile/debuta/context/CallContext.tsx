@@ -130,11 +130,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // ── Terminar llamada ──────────────────────────────────────────────────
   const endCall = useCallback(() => {
-    if (!socket) return;
     const targetId = activeCall?.fromId || incomingCall?.fromId;
-    if (!targetId) return;
+    // Detener audio y limpiar SIEMPRE (aunque el estado esté incompleto), para
+    // que el tono de llamada / audio no siga sonando al salir de la pantalla.
     stopRingtone();
-    socket.emit('call:end', { paraId: targetId });
+    if (socket && targetId) {
+      socket.emit('call:end', { paraId: targetId });
+    }
     fullCleanup();
     setActiveCall(null);
     setIncomingCall(null);

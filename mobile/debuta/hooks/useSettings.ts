@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../components/services/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getToken } from '../components/services/tokenStorage';
 
 export interface Settings {
   max_distance:     number;
@@ -44,7 +44,7 @@ export function useSettings() {
   const [saving,   setSaving]   = useState(false);
 
   const fetchSettings = useCallback(async () => {
-    const token = await AsyncStorage.getItem('access_token').catch(() => null);
+    const token = await getToken();
     if (!token) { setLoading(false); return; }
     setLoading(true);
     try {

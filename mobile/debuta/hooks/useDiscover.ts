@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../components/services/api';
 import { UserProfile } from '../components/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getToken } from '../components/services/tokenStorage';
 
 const SUPERLIKE_KEY       = 'superlike_last_used';
 const SUPERLIKE_COOLDOWN  = 7 * 24 * 60 * 60 * 1000; // 7 días en ms
@@ -31,7 +32,7 @@ export function useDiscover() {
   }, []);
 
   const fetchProfiles = useCallback(async () => {
-    const token = await AsyncStorage.getItem('access_token').catch(() => null);
+    const token = await getToken();
     if (!token) { setLoading(false); return; }
     setLoading(true);
     try {

@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { AppState, AppStateStatus } from 'react-native';
+import { getToken } from '../components/services/tokenStorage';
 
 interface SocketContextType {
   socket: Socket | null;
@@ -33,7 +34,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const pollerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const initSocket = useCallback(async () => {
-    const token = await AsyncStorage.getItem('access_token');
+    const token = await getToken();
     const name = await AsyncStorage.getItem('user_name');
     const photo = await AsyncStorage.getItem('user_photo');
 
@@ -156,7 +157,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
         return;
       }
-      const token = await AsyncStorage.getItem('access_token');
+      const token = await getToken();
       if (token) {
         console.log('🌐 [Socket] Poller: token disponible, iniciando socket...');
         initSocket();

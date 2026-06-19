@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+import { getToken } from './tokenStorage';
 
 function getBaseUrl(): string {
   // Si hay URL en .env la usa (producción)
@@ -46,7 +46,7 @@ class ApiClient {
     // Interceptor de auth para el cliente JSON
     this.client.interceptors.request.use(async (config) => {
       try {
-        const token = await AsyncStorage.getItem('access_token');
+        const token = await getToken();
         if (token) config.headers['Authorization'] = `Bearer ${token}`;
       } catch (error) {
         console.warn('Error al obtener token:', error);
@@ -72,7 +72,7 @@ class ApiClient {
     // Interceptor de auth para el cliente de uploads
     this.uploadClient.interceptors.request.use(async (config) => {
       try {
-        const token = await AsyncStorage.getItem('access_token');
+        const token = await getToken();
         if (token) config.headers['Authorization'] = `Bearer ${token}`;
       } catch (error) {
         console.warn('Error al obtener token:', error);

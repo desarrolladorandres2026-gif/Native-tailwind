@@ -104,9 +104,9 @@ export default function TermsScreen() {
                 desc="Nombre, correo, fecha de nacimiento y fotos necesarios para la funcionalidad." 
                 colors={colors}
               />
-              <Definition 
-                term="Ubicación" 
-                desc="Utilizamos su GPS para mostrarle usuarios cercanos y facilitar el descubrimiento." 
+              <Definition
+                term="Ubicación"
+                desc="Usamos la ciudad que indicas en tu perfil para sugerirte personas de tu zona. No accedemos al GPS de tu dispositivo."
                 colors={colors}
               />
               <Definition 

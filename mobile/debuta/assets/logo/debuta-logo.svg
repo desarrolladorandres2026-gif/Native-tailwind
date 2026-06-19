@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100" width="320" height="100">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF655B"/>
+      <stop offset="100%" stop-color="#FD297B"/>
+    </linearGradient>
+    <linearGradient id="gradIcon" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF655B"/>
+      <stop offset="100%" stop-color="#FD297B"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Icon: D shape with two faces leaning in (negative space) -->
+  <rect x="6" y="6" width="88" height="88" rx="22" fill="url(#gradIcon)" filter="url(#glow)"/>
+
+  <!-- Letter D base -->
+  <path d="M26 26 L26 74 L46 74 Q72 74 72 50 Q72 26 46 26 Z" fill="white"/>
+  <!-- Inner cutout to create the D hollow -->
+  <path d="M34 34 L46 34 Q62 34 62 50 Q62 66 46 66 L34 66 Z" fill="url(#gradIcon)"/>
+
+  <!-- Two faces as negative space bumps on the D curve -->
+  <!-- Face left silhouette (small circle + neck suggestion) -->
+  <circle cx="49" cy="41" r="5.5" fill="white"/>
+  <path d="M46 47 Q49 52 52 47" fill="white"/>
+
+  <!-- Face right silhouette mirrored -->
+  <circle cx="59" cy="41" r="5.5" fill="white"/>
+  <path d="M56 47 Q59 52 62 47" fill="white"/>
+
+  <!-- Thin connecting arc between the two faces (the "leaning in" moment) -->
+  <path d="M54 39 Q54 36 54 36" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+
+  <!-- Wordmark -->
+  <text
+    x="110"
+    y="65"
+    font-family="'SF Pro Display', 'Helvetica Neue', Arial, sans-serif"
+    font-size="46"
+    font-weight="800"
+    letter-spacing="-1"
+    fill="url(#grad)"
+  >Debuta</text>
+</svg>

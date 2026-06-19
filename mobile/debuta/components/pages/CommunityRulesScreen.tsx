@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getToken } from '../services/tokenStorage';
 import * as Haptics from 'expo-haptics';
 import FloatingHearts from '../ui/FloatingHearts';
 import { boxShadow } from '../utils/shadow';
@@ -80,7 +81,7 @@ export default function CommunityRulesScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     await AsyncStorage.setItem('debuta_rules_accepted', 'true');
     
-    const token = await AsyncStorage.getItem('access_token');
+    const token = await getToken();
     if (token) {
       router.replace('/(tabs)');
     } else {

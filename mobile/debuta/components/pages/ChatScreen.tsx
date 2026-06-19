@@ -22,6 +22,7 @@ import { lastSeenText } from '../utils/age';
 import { boxShadow } from '../utils/shadow';
 import { useTheme } from '../../theme/ThemeContext';
 import { api } from '../services/api';
+import ReportModal from '../report/ReportModal';
 import { Sparkles, UtensilsCrossed, Flame } from 'lucide-react-native';
 
 const EMOJIS = ['😀','😂','🥰','😎','😭','👍','❤️','🔥','✨','💯','🎉','💬'];
@@ -394,6 +395,8 @@ export default function ChatScreen() {
   const inputRef = useRef<TextInput>(null);
   const { initiateCall } = useCall();
   const [imageUploading, setImageUploading] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [showReport, setShowReport] = useState(false);
 
   // Pre-fill input with icebreaker question if navigated from MatchModal
   useEffect(() => {
@@ -483,6 +486,30 @@ export default function ChatScreen() {
         setImageUploading(false);
       }
     }
+  };
+
+  const handleBlock = () => {
+    setShowOptionsMenu(false);
+    Alert.alert(
+      `Bloquear a ${name}`,
+      'Esta persona no podrá enviarte mensajes ni ver tu perfil. ¿Deseas continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Bloquear',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.post(`/block/${userId}`, {});
+              Alert.alert('Bloqueado', `Has bloqueado a ${name}.`);
+              router.back();
+            } catch (e: any) {
+              Alert.alert('Error', e?.message || 'No se pudo bloquear. Intenta de nuevo.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleStartCall = (isVideo: boolean) => {
@@ -577,6 +604,13 @@ export default function ChatScreen() {
               onPress={() => handleStartCall(true)}
             >
               <Ionicons name="videocam" size={20} color={colors.secondary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.callBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}
+              onPress={() => setShowOptionsMenu(true)}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Ionicons name="ellipsis-vertical" size={20} color={colors.textDim} />
             </TouchableOpacity>
           </View>
         </View>
@@ -699,9 +733,103 @@ export default function ChatScreen() {
         colors={colors}
         isDark={isDark}
       />
+
+      {/* ── Menú de opciones (Reportar / Bloquear) ───────────────────────────── */}
+      <Modal
+        visible={showOptionsMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowOptionsMenu(false)}
+        statusBarTranslucent
+      >
+        <Pressable style={om.backdrop} onPress={() => setShowOptionsMenu(false)}>
+          <Pressable onPress={() => {}}>
+            <View style={[om.sheet, { backgroundColor: isDark ? '#1A1626' : '#FFFFFF' }]}>
+              <Text style={[om.title, { color: colors.textDim }]} numberOfLines={1}>
+                {name}
+              </Text>
+
+              <TouchableOpacity
+                style={[om.option, { borderBottomColor: colors.glassBorder }]}
+                onPress={() => { setShowOptionsMenu(false); setShowReport(true); }}
+              >
+                <Ionicons name="flag-outline" size={22} color="#FF9500" />
+                <Text style={[om.optionText, { color: colors.text }]}>Reportar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={om.option}
+                onPress={handleBlock}
+              >
+                <Ionicons name="ban-outline" size={22} color="#FF3B30" />
+                <Text style={[om.optionText, { color: '#FF3B30' }]}>Bloquear</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[om.cancelBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : '#F2F2F7' }]}
+                onPress={() => setShowOptionsMenu(false)}
+              >
+                <Text style={[om.cancelText, { color: colors.textDim }]}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ── Modal de reporte ─────────────────────────────────────────────────── */}
+      <ReportModal
+        visible={showReport}
+        userId={userId}
+        userName={name}
+        onClose={() => setShowReport(false)}
+        onReported={() => {
+          setShowReport(false);
+          Alert.alert('Gracias', 'Tu reporte fue enviado. Lo revisaremos pronto.');
+        }}
+      />
     </View>
   );
 }
+
+// ── Estilos del menú de opciones ──────────────────────────────────────────────
+const om = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  sheet: {
+    width: '100%',
+    borderRadius: 20,
+    overflow: 'hidden',
+    paddingTop: 6,
+  },
+  title: {
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '600',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  optionText: { fontSize: 16, fontWeight: '600' },
+  cancelBtn: {
+    margin: 10,
+    borderRadius: 14,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  cancelText: { fontSize: 16, fontWeight: '700' },
+});
 
 // ── Estilos de la vista previa de foto ────────────────────────────────────────
 const { width: SCREEN_W } = Dimensions.get('window');

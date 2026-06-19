@@ -16,7 +16,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getToken } from '../services/tokenStorage';
 import { Ionicons } from '@expo/vector-icons';
 import FloatingHearts from '../ui/FloatingHearts';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
@@ -164,7 +164,7 @@ export default function OnboardingScreen() {
   }, [currentIndex, isNavigating]);
 
   const finishOnboarding = useCallback(async () => {
-    const token = await AsyncStorage.getItem('access_token');
+    const token = await getToken();
     if (token) router.replace('/(tabs)');
     else        router.replace('/login');
   }, []);
@@ -246,7 +246,7 @@ export default function OnboardingScreen() {
 
         {/* Título + subtítulo */}
         <Animated.View style={[s.textBlock, { opacity: textOpacity, transform: [{ translateY: textTranslateY }] }]}>
-          <Text style={[s.title, { color: isDark ? colors.text : slide.accent, textShadow: isDark ? 'none' : textShadow(`${colors.primary}40`, 2, 4) }]}>{slide.title}</Text>
+          <Text style={[s.title, { color: isDark ? colors.text : slide.accent }, isDark ? null : textShadow(`${colors.primary}40`, 2, 4)]}>{slide.title}</Text>
           <Text style={[s.subtitle, { color: colors.textDim }]}>{slide.subtitle}</Text>
 
           {/* Chip de detalle */}

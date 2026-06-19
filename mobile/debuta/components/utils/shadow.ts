@@ -1,3 +1,5 @@
+import type { TextStyle } from 'react-native';
+
 // Helper de sombras — migra los props deprecados `shadow*` a `boxShadow`
 // (soportado de forma cross-platform en React Native 0.81+ / New Architecture).
 //
@@ -30,12 +32,21 @@ export function boxShadow(
   return `${offsetX}px ${offsetY}px ${blur}px ${withOpacity(color, opacity)}`;
 }
 
-/** Construye un string `textShadow` a partir de los antiguos props de textShadow*. */
+/**
+ * Construye las props nativas de sombra de texto para React Native.
+ * Devuelve un objeto que debe expandirse en el estilo (`...textShadow(...)`),
+ * no asignarse a una clave `textShadow` (ese shorthand solo existe en web y no
+ * se renderiza en Android/iOS nativo).
+ */
 export function textShadow(
   color: string,
   offsetY: number,
   blur: number,
   offsetX = 0,
-): string {
-  return `${offsetX}px ${offsetY}px ${blur}px ${color}`;
+): Pick<TextStyle, 'textShadowColor' | 'textShadowOffset' | 'textShadowRadius'> {
+  return {
+    textShadowColor: color,
+    textShadowOffset: { width: offsetX, height: offsetY },
+    textShadowRadius: blur,
+  };
 }

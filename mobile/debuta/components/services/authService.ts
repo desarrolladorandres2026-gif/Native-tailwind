@@ -6,6 +6,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from './api';
+import { setToken, getToken, removeToken } from './tokenStorage';
 
 // ── Tipos exportados ──────────────────────────────────────────────────────────
 export interface AuthUser {
@@ -62,7 +63,7 @@ const storeToken = async (response: LoginResponse): Promise<void> => {
     console.error('Login response sin token:', JSON.stringify(response));
     throw new Error('El servidor no devolvió un token válido');
   }
-  await AsyncStorage.setItem('access_token', token);
+  await setToken(token);
   if (response.usuario?.id) {
     await AsyncStorage.setItem('user_id', response.usuario.id);
     await AsyncStorage.setItem('user_name', response.usuario.first_name || response.usuario.username);
@@ -143,7 +144,8 @@ export const authService = {
   },
 
   async logout(): Promise<void> {
-    await AsyncStorage.multiRemove(['access_token', 'user_id', 'usuario', 'user_role', 'user_name', 'user_photo']);
+    await removeToken();
+    await AsyncStorage.multiRemove(['user_id', 'usuario', 'user_role', 'user_name', 'user_photo']);
   },
 
   /**
@@ -161,16 +163,17 @@ export const authService = {
   },
 
   async isAuthenticated(): Promise<boolean> {
-    const token = await AsyncStorage.getItem('access_token');
+    const token = await getToken();
     return !!token;
   },
 
   async getAccessToken(): Promise<string | null> {
-    return AsyncStorage.getItem('access_token');
+    return getToken();
   },
 
   async deleteAccount(): Promise<void> {
     await api.delete('/users/me');
-    await AsyncStorage.multiRemove(['access_token', 'user_id', 'usuario']);
+    await removeToken();
+    await AsyncStorage.multiRemove(['user_id', 'usuario']);
   },
 };

@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getToken } from '../services/tokenStorage';
 import FloatingHearts from '../ui/FloatingHearts';
 import { boxShadow, textShadow } from '../utils/shadow';
 import { useTheme } from '../../theme/ThemeContext';
@@ -42,7 +43,7 @@ export default function SplashScreen() {
 
     const timer = setTimeout(async () => {
       try {
-        const token = await AsyncStorage.getItem('access_token');
+        const token = await getToken();
         const rulesAccepted = await AsyncStorage.getItem('debuta_rules_accepted');
         const userRole = await AsyncStorage.getItem('user_role');
 
@@ -115,7 +116,7 @@ export default function SplashScreen() {
           </View>
         </Animated.View>
 
-        <Text style={[styles.logoText, { color: isDark ? '#FFF' : colors.text, textShadow: textShadow(colors.secondary, 4, 10) }]}>Debuta</Text>
+        <Text style={[styles.logoText, { color: isDark ? '#FFF' : colors.text }, textShadow(colors.secondary, 4, 10)]}>Debuta</Text>
       </Animated.View>
 
       {/* Texto */}
