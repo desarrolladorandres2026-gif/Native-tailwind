@@ -170,6 +170,7 @@ function useWebRTCNative(socket: Socket | null) {
   const remoteDescSet      = useRef(false);
   const socketRef          = useRef<Socket | null>(null);
   const localStreamRef     = useRef<any>(null);
+  const isVideoRef         = useRef(false);
   // ICE servers obtenidos del backend — se actualizan antes de cada llamada
   const iceServersRef      = useRef<any[]>(ICE_SERVERS_FALLBACK);
 
@@ -320,17 +321,16 @@ function useWebRTCNative(socket: Socket | null) {
   const createOffer = useCallback(async (toId: string, isVideo: boolean) => {
     try {
       console.log('📤 [WebRTC] === INICIO createOffer ===');
+      isVideoRef.current = isVideo;
 
       // 1. Obtener ICE servers frescos del backend
       iceServersRef.current = await fetchIceServers();
 
-      // 2. Iniciar InCallManager
-      try {
-        InCallManager?.start({ media: isVideo ? 'video' : 'audio' });
-        InCallManager?.setForceSpeakerphoneOn(isVideo);
-      } catch (e) {
-        console.warn('⚠️ [WebRTC] InCallManager.start falló:', e);
-      }
+      // NOTA: NO iniciamos InCallManager aquí. Durante la fase de "llamando" debe
+      // sonar el ringback por el altavoz (audio de media). InCallManager pondría
+      // el audio en modo comunicación (auricular) y silenciaría el tono; al colgar,
+      // InCallManager.stop() devolvía el audio al altavoz y el tono sonaba de golpe.
+      // Se inicia en setRemoteAnswer, cuando la llamada es aceptada.
 
       const stream = await getLocalStream(isVideo);
       const pc     = createPC(toId);
@@ -362,11 +362,13 @@ function useWebRTCNative(socket: Socket | null) {
       if (!offerSdp?.sdp || offerSdp?.type !== 'offer') {
         throw new Error(`signalData inválido: type=${offerSdp?.type}, hasSdp=${!!offerSdp?.sdp}`);
       }
+      isVideoRef.current = isVideo;
 
       // 1. Obtener ICE servers frescos del backend
       iceServersRef.current = await fetchIceServers();
 
-      // 2. Iniciar InCallManager
+      // 2. Iniciar InCallManager (el receptor ya aceptó: el ringtone se detuvo
+      //    en acceptCall antes de llegar aquí, así que el audio puede enrutarse)
       try {
         InCallManager?.start({ media: isVideo ? 'video' : 'audio' });
         InCallManager?.setForceSpeakerphoneOn(isVideo);
@@ -412,6 +414,15 @@ function useWebRTCNative(socket: Socket | null) {
       remoteDescSet.current = true;
       console.log('✅ [WebRTC] Answer establecido. Signaling:', pc.signalingState);
       await flushIceCandidates(pc);
+
+      // La llamada fue aceptada: ahora enrutamos el audio para la conversación.
+      // (El ringback ya se detuvo en CallContext antes de llamar aquí.)
+      try {
+        InCallManager?.start({ media: isVideoRef.current ? 'video' : 'audio' });
+        InCallManager?.setForceSpeakerphoneOn(isVideoRef.current);
+      } catch (e) {
+        console.warn('⚠️ [WebRTC] InCallManager.start falló:', e);
+      }
     } catch (e: any) {
       console.error('❌ [WebRTC] Error en setRemoteAnswer:', e?.message ?? e);
     }

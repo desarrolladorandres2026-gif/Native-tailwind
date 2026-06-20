@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, Platform, Animated } from 'react-native';
 import { useRef, useEffect } from 'react';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/ThemeContext';
 
 function TabIcon({
@@ -53,6 +54,12 @@ function TabIcon({
 
 export default function TabsLayout() {
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  // Altura base de la barra + el inset inferior del sistema (barra de gestos /
+  // botones táctiles). Así la tab bar nunca queda tapada por la navegación del SO.
+  const baseHeight     = Platform.OS === 'ios' ? 88 : 60;
+  const basePadBottom  = Platform.OS === 'ios' ? 30 : 8;
 
   const gradientBorder = isDark
     ? ['rgba(139,92,246,0.55)', 'rgba(217,70,239,0.28)', 'rgba(139,92,246,0.55)'] as const
@@ -69,8 +76,8 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: 'transparent',
           borderTopWidth:  0,
-          height:          Platform.OS === 'ios' ? 88 : 70,
-          paddingBottom:   Platform.OS === 'ios' ? 30 : 10,
+          height:          baseHeight + insets.bottom,
+          paddingBottom:   basePadBottom + insets.bottom,
           paddingTop:      6,
           elevation:       0,
           boxShadow:       'none',

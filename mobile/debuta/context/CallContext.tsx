@@ -85,7 +85,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // ── Audio: ringtone ───────────────────────────────────────────────────
   const ringtonePlayer = useAudioPlayer(
-    require('../assets/sounds/ringtone.m4a')
+    require('../assets/sounds/ringtone.wav')
   );
 
   const playRingtone = useCallback(() => {

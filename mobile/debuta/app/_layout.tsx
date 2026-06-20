@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Stack } from 'expo-router';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { AlertProvider } from '../hooks/useCustomAlert';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreenSDK from 'expo-splash-screen';
@@ -25,34 +26,36 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <ThemeProvider>
-      <SocketProvider>
-        <NotificationProvider>
-          <CallProvider>
-            <AlertProvider>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="index" options={{ headerShown: false }} />
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="login" options={{ headerShown: false }} />
-                <Stack.Screen name="register" options={{ headerShown: false }} />
-                <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-                <Stack.Screen name="rules" options={{ headerShown: false }} />
-                <Stack.Screen name="terms" options={{ headerShown: false }} />
-                <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
-                <Stack.Screen name="verify-code" options={{ headerShown: false }} />
-                <Stack.Screen name="reset-password" options={{ headerShown: false }} />
-                <Stack.Screen name="call" options={{ 
-                  headerShown: false,
-                  presentation: 'fullScreenModal',
-                  animation: 'fade'
-                }} />
-                <Stack.Screen name="partner" options={{ headerShown: false }} />
-              </Stack>
-              <StatusBar style="auto" />
-            </AlertProvider>
-          </CallProvider>
-        </NotificationProvider>
-      </SocketProvider>
-    </ThemeProvider>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <ThemeProvider>
+        <SocketProvider>
+          <NotificationProvider>
+            <CallProvider>
+              <AlertProvider>
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="index" options={{ headerShown: false }} />
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen name="login" options={{ headerShown: false }} />
+                  <Stack.Screen name="register" options={{ headerShown: false }} />
+                  <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+                  <Stack.Screen name="rules" options={{ headerShown: false }} />
+                  <Stack.Screen name="terms" options={{ headerShown: false }} />
+                  <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+                  <Stack.Screen name="verify-code" options={{ headerShown: false }} />
+                  <Stack.Screen name="reset-password" options={{ headerShown: false }} />
+                  <Stack.Screen name="call" options={{
+                    headerShown: false,
+                    presentation: 'fullScreenModal',
+                    animation: 'fade'
+                  }} />
+                  <Stack.Screen name="partner" options={{ headerShown: false }} />
+                </Stack>
+                <StatusBar style="auto" />
+              </AlertProvider>
+            </CallProvider>
+          </NotificationProvider>
+        </SocketProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
