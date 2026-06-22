@@ -245,6 +245,13 @@ function useWebRTCNative(socket: Socket | null) {
   const createPC = (toId: string): any => {
     if (pcRef.current) {
       console.log('🔧 [WebRTC] Cerrando PeerConnection anterior...');
+      // Nullificar handlers antes de cerrar para liberar referencias y evitar
+      // que los closures del PC anterior sigan actualizando el estado React.
+      pcRef.current.onicecandidate          = null;
+      pcRef.current.oniceconnectionstatechange = null;
+      pcRef.current.onicegatheringstatechange  = null;
+      pcRef.current.onsignalingstatechange     = null;
+      pcRef.current.ontrack                    = null;
       pcRef.current.close();
       pcRef.current = null;
     }
@@ -434,8 +441,12 @@ function useWebRTCNative(socket: Socket | null) {
     if (!pc) { console.log('📦 [WebRTC] No hay PC, descartando ICE'); return; }
     try {
       if (!remoteDescSet.current || !pc.remoteDescription?.type) {
-        console.log('📦 [WebRTC] Bufferizando ICE candidate (sin remoteDesc aún)');
-        iceCandidateBuffer.current.push(candidate);
+        if (iceCandidateBuffer.current.length < 50) {
+          console.log('📦 [WebRTC] Bufferizando ICE candidate (sin remoteDesc aún)');
+          iceCandidateBuffer.current.push(candidate);
+        } else {
+          console.warn('⚠️ [WebRTC] Buffer ICE lleno, descartando candidato');
+        }
         return;
       }
       await pc.addIceCandidate(new RTCIceCandidate(candidate));
@@ -470,7 +481,15 @@ function useWebRTCNative(socket: Socket | null) {
       console.log(`🧹 [WebRTC] Track detenido: ${track.kind}`);
     });
 
-    if (pcRef.current) { pcRef.current.close(); pcRef.current = null; }
+    if (pcRef.current) {
+      pcRef.current.onicecandidate             = null;
+      pcRef.current.oniceconnectionstatechange = null;
+      pcRef.current.onicegatheringstatechange  = null;
+      pcRef.current.onsignalingstatechange     = null;
+      pcRef.current.ontrack                    = null;
+      pcRef.current.close();
+      pcRef.current = null;
+    }
 
     remoteDescSet.current      = false;
     iceCandidateBuffer.current = [];

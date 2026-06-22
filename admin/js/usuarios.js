@@ -38,7 +38,7 @@ const Usuarios = (() => {
       const qs = new URLSearchParams({ page, limit: 20, search, rol, activo }).toString();
       const d  = await Auth.api('GET', `/users?${qs}`);
       renderRows(d.usuarios);
-      renderPagination('users-pagination', d.page, d.pages, load);
+      renderPagination('users-pagination', d.page, d.pages, 'Usuarios.load');
     } catch (e) {
       tbody.innerHTML = `<tr><td colspan="7" class="loading-row" style="color:var(--red)">${e.message}</td></tr>`;
     }

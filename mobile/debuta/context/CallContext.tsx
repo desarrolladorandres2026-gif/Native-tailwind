@@ -111,6 +111,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => clearTimeout(t);
   }, []);
 
+  // Detener ringtone al desmontar (app va a background o se cierra)
+  useEffect(() => {
+    return () => { stopRingtone(); };
+  }, [stopRingtone]);
+
   // Timeout de "sin respuesta" de la llamada saliente en curso
   const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearCallTimeout = useCallback(() => {
@@ -370,6 +375,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const msg = e?.message ?? '';
       console.error('❌ [CALL] Error creando oferta WebRTC:', msg);
       stopRingtone();
+      clearCallTimeout();
       fullCleanup();
       setActiveCall(null);
       setIsOutgoing(false);
@@ -444,6 +450,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       console.log('📥 [CALL] call:accept emitido con answer SDP. type:', answer.type);
+      // La fase "aceptando" terminó con éxito; reseteamos el guard para que
+      // fullCleanup no sea el único camino de salida.
+      acceptingRef.current = false;
     } catch (e: any) {
       const msg = e?.message ?? '';
       console.error('❌ [CALL] Error creando respuesta WebRTC:', msg);

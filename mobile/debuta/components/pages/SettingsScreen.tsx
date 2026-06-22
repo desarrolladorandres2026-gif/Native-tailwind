@@ -268,6 +268,7 @@ function VerifyIdentityModal({
     if (!base64) return;
 
     setLoading(true);
+    // A partir de aquí cualquier salida debe pasar por el bloque finally
     try {
       const res = await api.putLong<{ ok: boolean; is_verified: boolean }>('/facial/update', { 
         image: `data:image/jpeg;base64,${base64}` 

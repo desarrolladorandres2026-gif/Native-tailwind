@@ -40,7 +40,7 @@ const Reportes = (() => {
       const qs = new URLSearchParams({ page, limit: 20, estado }).toString();
       const d  = await Auth.api('GET', `/reports?${qs}`);
       renderRows(d.reportes);
-      renderPagination('reports-pagination', d.page, d.pages, load);
+      renderPagination('reports-pagination', d.page, d.pages, 'Reportes.load');
     } catch (e) {
       tbody.innerHTML = `<tr><td colspan="7" class="loading-row" style="color:var(--red)">${e.message}</td></tr>`;
     }

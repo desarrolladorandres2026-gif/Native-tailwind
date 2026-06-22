@@ -10,19 +10,19 @@ function showToast(msg, type = 'success') {
   el._timer = setTimeout(() => el.classList.add('hidden'), 3500);
 }
 
-function renderPagination(containerId, page, pages, loadFn) {
+function renderPagination(containerId, page, pages, fnName) {
   const container = document.getElementById(containerId);
   if (!container || pages <= 1) { if (container) container.innerHTML = ''; return; }
 
-  let html = `<button class="page-btn" onclick="(${loadFn.name || 'arguments.callee'})(${page - 1})" ${page <= 1 ? 'disabled' : ''}>‹ Anterior</button>`;
+  let html = `<button class="page-btn" onclick="${fnName}(${page - 1})" ${page <= 1 ? 'disabled' : ''}>‹ Anterior</button>`;
 
   const start = Math.max(1, page - 2);
   const end   = Math.min(pages, page + 2);
   for (let i = start; i <= end; i++) {
-    html += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="${loadFn.name}(${i})">${i}</button>`;
+    html += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="${fnName}(${i})">${i}</button>`;
   }
 
-  html += `<button class="page-btn" onclick="${loadFn.name}(${page + 1})" ${page >= pages ? 'disabled' : ''}>Siguiente ›</button>`;
+  html += `<button class="page-btn" onclick="${fnName}(${page + 1})" ${page >= pages ? 'disabled' : ''}>Siguiente ›</button>`;
   container.innerHTML = html;
 }
 

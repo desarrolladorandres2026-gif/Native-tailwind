@@ -32,6 +32,17 @@ const SwipeCard: React.FC<Props> = ({
   const likeOp = useRef(new Animated.Value(0)).current;
   const nopeOp = useRef(new Animated.Value(0)).current;
 
+  // El PanResponder se crea una sola vez, así que necesitamos refs "vivos"
+  // para que lea siempre el valor actual de estas props. Sin esto, cuando una
+  // tarjeta sube a la cima (isTop pasa de false a true) sin remontarse, el
+  // closure seguiría viendo isTop=false y dejaría de responder al gesto.
+  const isTopRef   = useRef(isTop);
+  const onSwipeRef = useRef(onSwipe);
+  const onPressRef = useRef(onPress);
+  isTopRef.current   = isTop;
+  onSwipeRef.current = onSwipe;
+  onPressRef.current = onPress;
+
   // Entrance animation (top card only)
   const mountOpacity = useRef(new Animated.Value(isTop ? 0 : 1)).current;
   const mountScale   = useRef(new Animated.Value(isTop ? 0.88 : 1)).current;
@@ -56,8 +67,8 @@ const SwipeCard: React.FC<Props> = ({
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => isTop,
-      onMoveShouldSetPanResponder:  () => isTop,
+      onStartShouldSetPanResponder: () => isTopRef.current,
+      onMoveShouldSetPanResponder:  () => isTopRef.current,
       onPanResponderMove: (_, { dx, dy }) => {
         pan.setValue({ x: dx, y: dy });
         likeOp.setValue(dx > 0 ? Math.min(dx / 100, 1) : 0);
@@ -78,7 +89,7 @@ const SwipeCard: React.FC<Props> = ({
         }
       },
       onPanResponderRelease: (_, { dx, dy }) => {
-        if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && onPress) { onPress(); }
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && onPressRef.current) { onPressRef.current(); }
         if (dx > SWIPE_THRESHOLD)       { flyOut('like'); }
         else if (dx < -SWIPE_THRESHOLD) { flyOut('dislike'); }
         else {
@@ -102,7 +113,7 @@ const SwipeCard: React.FC<Props> = ({
       toValue:  { x: direction === 'like' ? W * 1.5 : -W * 1.5, y: 0 },
       duration: 280,
       useNativeDriver: false,
-    }).start(() => onSwipe(direction));
+    }).start(() => onSwipeRef.current(direction));
   };
 
   const age      = getAge(profile.birth_date);

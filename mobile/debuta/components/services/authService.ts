@@ -145,7 +145,7 @@ export const authService = {
 
   async logout(): Promise<void> {
     await removeToken();
-    await AsyncStorage.multiRemove(['user_id', 'usuario', 'user_role', 'user_name', 'user_photo']);
+    await AsyncStorage.multiRemove(['user_id', 'user_role', 'user_name', 'user_photo']);
   },
 
   /**
@@ -174,6 +174,6 @@ export const authService = {
   async deleteAccount(): Promise<void> {
     await api.delete('/users/me');
     await removeToken();
-    await AsyncStorage.multiRemove(['user_id', 'usuario']);
+    await AsyncStorage.multiRemove(['user_id']);
   },
 };

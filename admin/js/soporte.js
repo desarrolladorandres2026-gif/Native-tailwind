@@ -71,22 +71,22 @@ const Soporte = (() => {
     const estado = document.getElementById('soporte-status-filter')?.value || '';
     const tbody  = document.getElementById('soporte-tbody');
     if (!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="6" class="loading-row">Cargando…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="loading-row">Cargando…</td></tr>`;
 
     try {
       const qs = new URLSearchParams({ page, limit: 20, estado }).toString();
       const d  = await Auth.api('GET', `/soporte?${qs}`);
       renderRows(d.tickets);
-      renderPagination('soporte-pagination', d.page, d.pages, load);
+      renderPagination('soporte-pagination', d.page, d.pages, 'Soporte.load');
     } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="6" class="loading-row" style="color:var(--red)">${e.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="loading-row" style="color:var(--red)">${e.message}</td></tr>`;
     }
   }
 
   function renderRows(tickets) {
     const tbody = document.getElementById('soporte-tbody');
     if (!tickets.length) {
-      tbody.innerHTML = `<tr><td colspan="6" class="loading-row">No hay tickets</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="loading-row">No hay tickets</td></tr>`;
       return;
     }
     tbody.innerHTML = tickets.map(t => `

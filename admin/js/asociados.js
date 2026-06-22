@@ -22,7 +22,7 @@ const Asociados = (() => {
       const qs = new URLSearchParams({ page, limit: 20 }).toString();
       const d  = await Auth.api('GET', `/asociados?${qs}`);
       renderRows(d.asociados);
-      renderPagination('asociados-pagination', d.page, d.pages, load);
+      renderPagination('asociados-pagination', d.page, d.pages, 'Asociados.load');
     } catch (e) {
       tbody.innerHTML = `<tr><td colspan="8" class="loading-row" style="color:var(--red)">${e.message}</td></tr>`;
     }

@@ -17,6 +17,7 @@ import SwipeCard from '../discover/SwipeCard';
 import ActionButtons from '../discover/ActionButtons';
 import MatchModal from '../discover/MatchModal';
 import EmptyState from '../discover/EmptyState';
+import SuperLikeInfoModal from '../discover/SuperLikeInfoModal';
 import ReportModal from '../report/ReportModal';
 import UserProfileModal from '../discover/UserProfileModal';
 import ProfileCompletionPrompt from '../profile/ProfileCompletionPrompt';
@@ -52,6 +53,7 @@ export default function DiscoverScreen() {
   const [previewProfile, setPreviewProfile] = useState<UserProfile | null>(null);
   const [showCompletionPrompt, setShowCompletionPrompt] = useState(false);
   const [hasShownPrompt, setHasShownPrompt] = useState(false);
+  const [showSuperLikeInfo, setShowSuperLikeInfo] = useState(false);
 
   // ── Undo: guardamos el último perfil removido ──────────────────────────────
   const [undoStack, setUndoStack] = useState<UserProfile[]>([]);
@@ -86,7 +88,7 @@ export default function DiscoverScreen() {
     // Guardamos en undo stack antes de remover (solo los últimos 3 perfiles)
     setUndoStack(prev => [profile, ...prev].slice(0, 3));
 
-    const result = await swipe(userId, direction);
+    const result = await swipe(userId, direction, profile);
     if (result?.esMatch && (direction === 'like' || direction === 'superlike')) {
       setMatchData({
         name,
@@ -101,8 +103,16 @@ export default function DiscoverScreen() {
     }
   };
 
-  // ── Super Like: usa endpoint dedicado con cooldown de 7 días ────────────
-  const handleSuperLike = () => {
+  // ── Super Like: muestra el aviso explicativo antes de gastarlo ──────────
+  const handleSuperLikePress = () => {
+    if (topProfile && superlikeAvailable) {
+      setShowSuperLikeInfo(true);
+    }
+  };
+
+  // ── Super Like confirmado: usa endpoint dedicado con cooldown de 7 días ──
+  const handleSuperLikeConfirm = () => {
+    setShowSuperLikeInfo(false);
     if (topProfile && superlikeAvailable) {
       handleSwipe(topProfile.id, 'superlike', topProfile.first_name || topProfile.username, topProfile);
     }
@@ -193,13 +203,20 @@ export default function DiscoverScreen() {
               onLike={() => {
                 if (topProfile) handleSwipe(topProfile.id, 'like', topProfile.first_name || topProfile.username, topProfile);
               }}
-              onSuperLike={handleSuperLike}
+              onSuperLike={handleSuperLikePress}
               onUndo={handleUndo}
             />
           </View>
         )}
 
         {/* ── Modals ── */}
+        <SuperLikeInfoModal
+          visible={showSuperLikeInfo}
+          superlikeDaysLeft={superlikeDaysLeft}
+          onConfirm={handleSuperLikeConfirm}
+          onClose={() => setShowSuperLikeInfo(false)}
+        />
+
         <MatchModal
           visible={showMatch}
           name={matchData?.name ?? ''}

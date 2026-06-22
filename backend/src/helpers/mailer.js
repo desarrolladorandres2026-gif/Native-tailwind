@@ -1,17 +1,44 @@
 /**
  * mailer.js
- * Helper para enviar correos con Nodemailer (Gmail SMTP)
+ * Helper para enviar correos con Nodemailer.
+ *
+ * Usa un proveedor SMTP transaccional (Brevo, Resend, SES, etc.) si están
+ * definidas las variables SMTP_*; de lo contrario cae a Gmail (legacy, tiende
+ * a ir a spam). Para salir de spam: configurar un SMTP con tu dominio propio
+ * (debuta.online) y registros SPF + DKIM + DMARC en el DNS.
  */
 
 const nodemailer = require('nodemailer');
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+function createTransporter() {
+  if (process.env.SMTP_HOST) {
+    const port = Number(process.env.SMTP_PORT) || 587;
+    return nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port,
+      secure: port === 465, // true solo para 465; 587 usa STARTTLS
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+  }
+  // Fallback legacy: Gmail. Funciona, pero suele caer en spam.
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+}
+
+const transporter = createTransporter();
+
+// Remitente. Idealmente un buzón de tu dominio: "Debuta" <noreply@debuta.online>
+const MAIL_FROM = process.env.MAIL_FROM || `"Debuta" <${process.env.EMAIL_USER}>`;
+// Buzón real para respuestas (opcional)
+const MAIL_REPLY_TO = process.env.MAIL_REPLY_TO || undefined;
 
 /**
  * Envía un correo de recuperación de contraseña
@@ -104,10 +131,24 @@ const enviarCorreoReset = async (toEmail, nombre, code) => {
 </html>
   `.trim();
 
+  const text =
+`Hola ${nombre},
+
+Recibimos una solicitud para restablecer tu contraseña en Debuta.
+
+Tu código de verificación es: ${code}
+Expira en 15 minutos.
+
+Si no solicitaste este código, ignora este correo. Tu cuenta permanece segura.
+
+— Equipo Debuta`;
+
   await transporter.sendMail({
-    from: `"Debuta ❤️" <${process.env.EMAIL_USER}>`,
+    from: MAIL_FROM,
+    replyTo: MAIL_REPLY_TO,
     to: toEmail,
-    subject: `${code} es tu código de recuperación — Debuta`,
+    subject: `Tu código para restablecer la contraseña es ${code}`,
+    text,
     html,
   });
 };
@@ -202,10 +243,24 @@ const enviarCodigoVerificacionRegistro = async (toEmail, nombre, code) => {
 </html>
   `.trim();
 
+  const text =
+`Hola ${nombre},
+
+Estás a un paso de unirte a Debuta. Usa este código para verificar tu correo electrónico:
+
+Código: ${code}
+Expira en 10 minutos.
+
+Si no creaste una cuenta en Debuta, ignora este correo.
+
+— Equipo Debuta`;
+
   await transporter.sendMail({
-    from: `"Debuta 💎" <${process.env.EMAIL_USER}>`,
+    from: MAIL_FROM,
+    replyTo: MAIL_REPLY_TO,
     to: toEmail,
-    subject: `${code} — Tu código de verificación en Debuta`,
+    subject: `Tu código de verificación es ${code}`,
+    text,
     html,
   });
 };

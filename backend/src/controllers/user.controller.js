@@ -102,6 +102,8 @@ const register = async (req, res) => {
     const telefonoNorm = String(telefono ?? '').replace(/\D/g, '');
     if (!nombre) errores.push('El nombre es obligatorio');
     if (!correo) errores.push('El correo es obligatorio');
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim()))
+      errores.push('El correo no tiene un formato válido');
     if (!telefono) errores.push('El teléfono es obligatorio');
     else if (!/^\d{10}$/.test(telefonoNorm))
       errores.push('El teléfono debe tener exactamente 10 dígitos');
@@ -160,7 +162,9 @@ const register = async (req, res) => {
       is_verified: false,
     });
 
-    // Si viene facePhoto (base64), subirla a Cloudinary como foto de perfil
+    // Si viene facePhoto (base64), subirla a Cloudinary como foto de perfil.
+    // is_verified NO se toca aquí — la verificación de identidad ocurre
+    // explícitamente en Settings › Verificar Identidad (PUT /api/facial/update).
     if (facePhoto && typeof facePhoto === 'string' && facePhoto.length > 1000) {
       try {
         const base64Data = facePhoto.startsWith('data:')
@@ -169,7 +173,6 @@ const register = async (req, res) => {
         const buffer = Buffer.from(base64Data, 'base64');
         const { url, public_id } = await uploadProfilePicture(buffer, usuario._id.toString());
         usuario.profile_picture = { url, public_id };
-        usuario.is_verified = true;
         await usuario.save();
       } catch (cloudErr) {
         console.warn('register: no se pudo subir facePhoto a Cloudinary:', cloudErr.message);

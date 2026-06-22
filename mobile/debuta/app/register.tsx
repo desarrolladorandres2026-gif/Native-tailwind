@@ -300,10 +300,20 @@ export default function RegisterScreen() {
   };
 
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      showAlert({
+        title: 'Permiso requerido',
+        message: 'Necesitamos acceso a tu cámara para verificar tu identidad.',
+        icon: 'camera-outline',
+        iconColor: colors.error,
+      });
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      cameraType: ImagePicker.CameraType.front,
       allowsEditing: true,
-      aspect: [3, 4], // Más elegante para fotos de perfil
+      aspect: [3, 4],
       quality: 0.8,
       base64: true,
     });
@@ -613,22 +623,27 @@ export default function RegisterScreen() {
           </>
         );
 
-      case 6: // Foto
+      case 6: // Selfie de verificación
         return (
           <>
-            <Text style={[s.stepTitle, { color: colors.text }]}>Primera Impresión</Text>
-            <Text style={[s.stepSub, { color: colors.textLight }]}>Sube una foto donde te veas increíble. Las caras visibles tienen un 80% más de éxito.</Text>
+            <Text style={[s.stepTitle, { color: colors.text }]}>Verificación de Identidad</Text>
+            <Text style={[s.stepSub, { color: colors.textLight }]}>
+              Tómate una selfie para verificar que eres una persona real. Mira directo a la cámara con buena iluminación.
+            </Text>
 
-            <TouchableOpacity 
-              style={[s.photoFrame, { backgroundColor: colors.inputBg, borderColor: colors.glassBorder }, isValidationActive && !foto && { borderColor: colors.error }]} 
+            <TouchableOpacity
+              style={[s.photoFrame, { backgroundColor: colors.inputBg, borderColor: colors.glassBorder }, isValidationActive && !foto && { borderColor: colors.error }]}
               onPress={pickImage} activeOpacity={0.8}
             >
               {foto ? (
                 <Image source={{ uri: foto }} style={s.photo} />
               ) : (
                 <View style={s.photoPlaceholder}>
-                  <Ionicons name="camera-outline" size={48} color={colors.textLight} />
-                  <Text style={[s.photoText, { color: colors.textLight }]}>Elegir Foto</Text>
+                  <View style={[s.selfieIconRing, { borderColor: `${colors.primary}40` }]}>
+                    <Ionicons name="person-outline" size={52} color={colors.primary} />
+                  </View>
+                  <Text style={[s.photoText, { color: colors.text, marginTop: 16 }]}>Tomar Selfie</Text>
+                  <Text style={[s.selfieHint, { color: colors.textLight }]}>Abre la cámara frontal</Text>
                 </View>
               )}
               {foto && (
@@ -637,6 +652,12 @@ export default function RegisterScreen() {
                 </View>
               )}
             </TouchableOpacity>
+
+            {foto && (
+              <TouchableOpacity onPress={pickImage} activeOpacity={0.7} style={{ alignSelf: 'center', marginTop: 14 }}>
+                <Text style={[s.otpResendText, { color: colors.primary, fontWeight: '700' }]}>Tomar otra foto</Text>
+              </TouchableOpacity>
+            )}
           </>
         );
 
@@ -941,6 +962,12 @@ const s = StyleSheet.create({
     width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center',
   },
+  selfieIconRing: {
+    width: 100, height: 100, borderRadius: 50,
+    borderWidth: 2,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  selfieHint: { fontSize: 13, fontWeight: '500', marginTop: 6 },
 
   termsWrapper: { flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingRight: 20 },
   checkbox: { 
