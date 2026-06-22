@@ -14,6 +14,12 @@ app.use('/admin', express.static(adminDir));
 app.get('/admin', (_, res) => res.sendFile(path.join(adminDir, 'index.html')));
 app.get('/admin/*', (_, res) => res.sendFile(path.join(adminDir, 'index.html')));
 
+// ── Política de Privacidad (requerida por Google Play) ────────────────────────
+const publicDir = path.join(__dirname, 'public');
+app.get(['/privacidad', '/privacy'], (_, res) =>
+  res.sendFile(path.join(publicDir, 'privacidad.html'))
+);
+
 function getLocalIP() {
   const interfaces = os.networkInterfaces();
   const candidates = [];
