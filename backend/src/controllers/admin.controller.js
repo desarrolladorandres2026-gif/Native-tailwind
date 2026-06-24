@@ -202,11 +202,12 @@ const obtenerUsuarios = async (req, res) => {
 
     const filtro = {};
     if (search) {
+      const safeSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       filtro.$or = [
-        { first_name: { $regex: search, $options: 'i' } },
-        { last_name:  { $regex: search, $options: 'i' } },
-        { username:   { $regex: search, $options: 'i' } },
-        { correo:     { $regex: search, $options: 'i' } },
+        { first_name: { $regex: safeSearch, $options: 'i' } },
+        { last_name:  { $regex: safeSearch, $options: 'i' } },
+        { username:   { $regex: safeSearch, $options: 'i' } },
+        { correo:     { $regex: safeSearch, $options: 'i' } },
       ];
     }
     if (rol)    filtro.rol    = rol;

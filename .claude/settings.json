@@ -77,7 +77,9 @@
       "Bash(curl -s https://debuta.online/)",
       "Bash(curl -sv https://debuta.online/)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://debuta.online/apk/)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://debuta.online/socket.io/)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://debuta.online/socket.io/)",
+      "Bash(rm -rf \"C:\\\\Users\\\\desar\\\\OneDrive\\\\Desktop\\\\Native tailwind\\\\pw-test\")",
+      "Bash(rm -f \"C:\\\\Users\\\\desar\\\\OneDrive\\\\Desktop\\\\Native tailwind\\\\screenshot_privacidad.png\" \"C:\\\\Users\\\\desar\\\\OneDrive\\\\Desktop\\\\Native tailwind\\\\screenshot_admin.png\" \"C:\\\\Users\\\\desar\\\\OneDrive\\\\Desktop\\\\Native tailwind\\\\screenshot_admin2.png\" \"C:\\\\Users\\\\desar\\\\OneDrive\\\\Desktop\\\\Native tailwind\\\\screenshot_admin_final.png\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\desar\\OneDrive\\Desktop\\Native tailwind\\backend\\models",

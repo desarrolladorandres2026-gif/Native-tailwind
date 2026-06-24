@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="theme-color" content="#FD297B"/>
+  <title>Eliminar cuenta — Debuta</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:        #FAFAFA;
+      --bg2:       #F8F9FA;
+      --surface:   #FFFFFF;
+      --surface2:  #F4F4F8;
+      --border:    #EEEEEE;
+      --border2:   rgba(0,0,0,0.06);
+      --text-1:    #1A1A28;
+      --text-2:    #424242;
+      --text-3:    rgba(66,66,66,0.5);
+      --primary:   #FD297B;
+      --secondary: #FF655B;
+      --tertiary:  #FF5864;
+      --primary-glow: rgba(253,41,123,0.18);
+      --primary-soft: rgba(253,41,123,0.08);
+      --red:       #EF4444;
+      --red-soft:  rgba(239,68,68,0.08);
+      --green:     #10B981;
+      --green-soft:rgba(16,185,129,0.1);
+      --r:         14px;
+      --r-lg:      24px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow:    0 4px 24px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04);
+      --shadow-lg: 0 16px 48px rgba(253,41,123,0.12), 0 4px 16px rgba(0,0,0,0.06);
+    }
+
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text-1);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Fondo decorativo ── */
+    .canvas {
+      position: fixed; inset: 0; z-index: 0;
+      pointer-events: none; overflow: hidden;
+    }
+    .orb {
+      position: absolute; border-radius: 50%;
+      filter: blur(100px);
+    }
+    .orb-a {
+      width: 700px; height: 700px;
+      background: radial-gradient(circle, rgba(253,41,123,.10) 0%, transparent 65%);
+      top: -250px; left: -200px;
+    }
+    .orb-b {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(255,101,91,.08) 0%, transparent 65%);
+      bottom: -150px; right: -100px;
+    }
+    .orb-c {
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, rgba(253,41,123,.06) 0%, transparent 65%);
+      top: 50%; left: 50%; transform: translate(-50%, -50%);
+    }
+
+    /* ── Nav ── */
+    nav {
+      position: relative; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between;
+      max-width: 960px; margin: 0 auto; width: 100%;
+      padding: 20px 28px;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      background: rgba(250,250,250,0.85);
+    }
+    .brand { display: flex; align-items: center; gap: 11px; text-decoration: none; }
+    .brand-mark {
+      width: 36px; height: 36px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 12px var(--primary-glow);
+    }
+    .brand-name {
+      font-family: 'DM Serif Display', serif;
+      font-size: 20px;
+      font-style: italic;
+      color: var(--text-1);
+      letter-spacing: -0.3px;
+    }
+
+    /* ── Main ── */
+    main {
+      position: relative; z-index: 1;
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      padding: 48px 28px;
+    }
+
+    /* ── Card ── */
+    .card {
+      width: 100%; max-width: 460px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+    }
+
+    .step { display: none; }
+    .step.active { display: block; }
+
+    /* ── Step header ── */
+    .step-header {
+      padding: 36px 36px 26px;
+      background: linear-gradient(160deg, rgba(253,41,123,0.04) 0%, transparent 60%);
+      border-bottom: 1px solid var(--border);
+    }
+    .step-icon {
+      width: 54px; height: 54px; border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 18px; font-size: 22px;
+    }
+    .step-icon.red    { background: rgba(239,68,68,0.09);    border: 1.5px solid rgba(239,68,68,0.18); }
+    .step-icon.pink   { background: var(--primary-soft);     border: 1.5px solid rgba(253,41,123,0.18); }
+    .step-icon.green  { background: var(--green-soft);       border: 1.5px solid rgba(16,185,129,0.2); }
+
+    .step-header h2 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 24px;
+      font-style: italic;
+      color: var(--text-1);
+      margin-bottom: 8px;
+      letter-spacing: -0.3px;
+    }
+    .step-header p {
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--text-2);
+      font-weight: 400;
+    }
+
+    /* ── Step body ── */
+    .step-body { padding: 28px 36px 36px; }
+
+    /* ── Fields ── */
+    .field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 18px; }
+    .field label {
+      font-size: 11.5px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1.2px;
+      color: var(--text-3);
+    }
+    .field input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: var(--r);
+      padding: 13px 16px;
+      font-size: 15px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      color: var(--text-1);
+      outline: none;
+      transition: border-color .2s, box-shadow .2s, background .2s;
+    }
+    .field input:focus {
+      border-color: var(--primary);
+      background: #fff;
+      box-shadow: 0 0 0 4px var(--primary-soft);
+    }
+    .field input::placeholder { color: var(--text-3); }
+
+    .code-input {
+      text-align: center;
+      font-size: 30px !important;
+      font-weight: 800 !important;
+      letter-spacing: 12px;
+      font-family: 'Plus Jakarta Sans', monospace !important;
+      color: var(--primary) !important;
+    }
+
+    /* ── Alerts ── */
+    .alert {
+      display: none;
+      padding: 12px 16px;
+      border-radius: var(--r);
+      font-size: 13.5px;
+      line-height: 1.5;
+      font-weight: 500;
+      margin-bottom: 18px;
+    }
+    .alert.error   { background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.2); color: #c0392b; }
+    .alert.success { background: var(--green-soft); border: 1px solid rgba(16,185,129,0.25); color: #059669; }
+    .alert.show { display: block; }
+
+    /* ── Warning box ── */
+    .warning-box {
+      display: flex; gap: 12px; align-items: flex-start;
+      padding: 14px 16px;
+      background: rgba(239,68,68,0.06);
+      border: 1px solid rgba(239,68,68,0.15);
+      border-radius: var(--r);
+      margin-bottom: 22px;
+    }
+    .warning-box svg { flex-shrink: 0; margin-top: 1px; }
+    .warning-box p { font-size: 13px; line-height: 1.6; color: #b91c1c; font-weight: 500; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 15px 20px;
+      border-radius: var(--r); border: none;
+      font-size: 15px; font-weight: 700;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      cursor: pointer;
+      transition: transform .2s, box-shadow .2s, opacity .2s;
+      letter-spacing: -0.1px;
+    }
+    .btn:disabled { opacity: .45; cursor: not-allowed; transform: none !important; }
+
+    .btn-danger {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: #fff;
+      box-shadow: 0 6px 24px var(--primary-glow);
+    }
+    .btn-danger:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 36px var(--primary-glow);
+    }
+    .btn-danger:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      border: 1.5px solid var(--border);
+      color: var(--text-2);
+      margin-top: 10px;
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--surface2);
+      border-color: #d0d0d8;
+    }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 2.5px solid rgba(255,255,255,.35);
+      border-top-color: #fff;
+      animation: spin .7s linear infinite;
+      display: none;
+    }
+    .spinner.show { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Success screen ── */
+    .success-screen {
+      padding: 52px 36px;
+      display: flex; flex-direction: column;
+      align-items: center; text-align: center; gap: 14px;
+    }
+    .success-circle {
+      width: 76px; height: 76px; border-radius: 50%;
+      background: var(--green-soft);
+      border: 2px solid rgba(16,185,129,0.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 36px;
+      margin-bottom: 4px;
+    }
+    .success-screen h2 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 26px;
+      font-style: italic;
+      color: var(--text-1);
+      letter-spacing: -0.3px;
+    }
+    .success-screen p {
+      font-size: 14.5px;
+      color: var(--text-2);
+      line-height: 1.65;
+      max-width: 300px;
+    }
+
+    /* ── Progress dots ── */
+    .progress {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 16px 0 0;
+    }
+    .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--border);
+      transition: background .3s, width .3s;
+    }
+    .dot.active {
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      width: 20px; border-radius: 3px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      position: relative; z-index: 1;
+      text-align: center;
+      padding: 20px 28px;
+      font-size: 12px;
+      color: var(--text-3);
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Divider gradient line ── */
+    .gradient-bar {
+      height: 3px;
+      background: linear-gradient(90deg, var(--primary), var(--secondary), var(--tertiary));
+      width: 100%;
+    }
+
+    @media (max-width: 520px) {
+      nav { padding-left: 18px; padding-right: 18px; }
+      main { padding: 28px 16px; }
+      .step-header, .step-body, .success-screen { padding-left: 24px; padding-right: 24px; }
+      .step-header { padding-top: 28px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="canvas" aria-hidden="true">
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
+    <div class="orb orb-c"></div>
+  </div>
+
+  <nav>
+    <a href="/" class="brand">
+      <div class="brand-mark">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M9 15.5S2 11 2 6.5a4 4 0 0 1 7-2.65A4 4 0 0 1 16 6.5c0 4.5-7 9-7 9z" fill="white" opacity=".95"/>
+        </svg>
+      </div>
+      <span class="brand-name">Debuta</span>
+    </a>
+  </nav>
+
+  <main>
+    <div class="card">
+      <div class="gradient-bar"></div>
+
+      <!-- ── Paso 1: Correo + Contraseña ── -->
+      <div class="step active" id="step1">
+        <div class="step-header">
+          <div class="step-icon red">⚠️</div>
+          <h2>Eliminar cuenta</h2>
+          <p>Ingresa tu correo y contraseña para confirmar tu identidad. Te enviaremos un código de verificación.</p>
+        </div>
+        <div class="step-body">
+          <div class="warning-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <p>Esta acción es <strong>irreversible</strong>. Se eliminarán permanentemente tu perfil, fotos y todos tus datos de Debuta.</p>
+          </div>
+
+          <div id="alert1" class="alert error"></div>
+
+          <div class="field">
+            <label>Correo electrónico</label>
+            <input type="email" id="correo" placeholder="tucorreo@ejemplo.com" autocomplete="email"/>
+          </div>
+          <div class="field">
+            <label>Contraseña</label>
+            <input type="password" id="password" placeholder="••••••••" autocomplete="current-password"/>
+          </div>
+
+          <button class="btn btn-danger" id="btn1" onclick="solicitarCodigo()">
+            <span id="label1">Enviar código de verificación</span>
+            <div class="spinner" id="spin1"></div>
+          </button>
+        </div>
+        <div class="progress">
+          <div class="dot active"></div>
+          <div class="dot"></div>
+        </div>
+        <div style="padding-bottom:20px;"></div>
+      </div>
+
+      <!-- ── Paso 2: Código de verificación ── -->
+      <div class="step" id="step2">
+        <div class="step-header">
+          <div class="step-icon pink">📧</div>
+          <h2>Código de verificación</h2>
+          <p id="code-hint">Ingresa el código de 6 dígitos que enviamos a tu correo. Expira en 15 minutos.</p>
+        </div>
+        <div class="step-body">
+          <div id="alert2" class="alert error"></div>
+
+          <div class="field">
+            <label>Código de 6 dígitos</label>
+            <input type="text" id="code" class="code-input" placeholder="000000"
+                   maxlength="6" inputmode="numeric" autocomplete="one-time-code"/>
+          </div>
+
+          <button class="btn btn-danger" id="btn2" onclick="confirmarEliminacion()">
+            <span id="label2">Eliminar cuenta definitivamente</span>
+            <div class="spinner" id="spin2"></div>
+          </button>
+          <button class="btn btn-secondary" onclick="volverPaso1()">Cancelar</button>
+        </div>
+        <div class="progress">
+          <div class="dot"></div>
+          <div class="dot active"></div>
+        </div>
+        <div style="padding-bottom:20px;"></div>
+      </div>
+
+      <!-- ── Paso 3: Éxito ── -->
+      <div class="step" id="step3">
+        <div class="success-screen">
+          <div class="success-circle">✓</div>
+          <h2>Cuenta eliminada</h2>
+          <p>Tu cuenta y todos tus datos han sido eliminados permanentemente de Debuta. Lamentamos verte partir.</p>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer>© 2025 Debuta · Todos los derechos reservados</footer>
+
+  <script>
+    let correoGuardado = '';
+
+    function setLoading(step, loading) {
+      const btn   = document.getElementById('btn'   + step);
+      const label = document.getElementById('label' + step);
+      const spin  = document.getElementById('spin'  + step);
+      btn.disabled = loading;
+      label.style.display = loading ? 'none' : 'inline';
+      spin.classList.toggle('show', loading);
+    }
+
+    function showAlert(id, msg, type = 'error') {
+      const el = document.getElementById(id);
+      el.textContent = msg;
+      el.className = 'alert ' + type + ' show';
+    }
+
+    function hideAlert(id) {
+      document.getElementById(id).classList.remove('show');
+    }
+
+    function goToStep(n) {
+      document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+      document.getElementById('step' + n).classList.add('active');
+    }
+
+    function volverPaso1() {
+      hideAlert('alert2');
+      document.getElementById('code').value = '';
+      goToStep(1);
+    }
+
+    async function solicitarCodigo() {
+      const correo   = document.getElementById('correo').value.trim();
+      const password = document.getElementById('password').value;
+      hideAlert('alert1');
+
+      if (!correo || !password) {
+        showAlert('alert1', 'Por favor completa todos los campos.');
+        return;
+      }
+
+      setLoading(1, true);
+      try {
+        const res  = await fetch('/api/delete-account/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ correo, password }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          showAlert('alert1', data.message || 'Error al enviar el código.');
+          return;
+        }
+
+        correoGuardado = correo;
+        document.getElementById('code-hint').textContent =
+          'Ingresa el código de 6 dígitos que enviamos a ' + correo + '. Expira en 15 minutos.';
+        goToStep(2);
+      } catch {
+        showAlert('alert1', 'Error de red. Intenta nuevamente.');
+      } finally {
+        setLoading(1, false);
+      }
+    }
+
+    async function confirmarEliminacion() {
+      const code = document.getElementById('code').value.trim();
+      hideAlert('alert2');
+
+      if (!code || code.length !== 6) {
+        showAlert('alert2', 'Ingresa el código de 6 dígitos.');
+        return;
+      }
+
+      setLoading(2, true);
+      try {
+        const res  = await fetch('/api/delete-account/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ correo: correoGuardado, code }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          showAlert('alert2', data.message || 'Código incorrecto.');
+          return;
+        }
+
+        goToStep(3);
+      } catch {
+        showAlert('alert2', 'Error de red. Intenta nuevamente.');
+      } finally {
+        setLoading(2, false);
+      }
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      if (document.getElementById('step1').classList.contains('active')) solicitarCodigo();
+      else if (document.getElementById('step2').classList.contains('active')) confirmarEliminacion();
+    });
+
+    document.getElementById('code').addEventListener('input', function () {
+      this.value = this.value.replace(/\D/g, '').slice(0, 6);
+    });
+  </script>
+
+</body>
+</html>

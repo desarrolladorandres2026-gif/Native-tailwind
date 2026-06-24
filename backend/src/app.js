@@ -45,13 +45,23 @@ app.use('/api/admin',    require('./routes/admin.routes'));    // Administrador
 app.use('/api/asociado', require('./routes/asociado.routes')); // Asociado / Restaurante
 app.use('/api/auth',     require('./routes/social.routes'));   // Auth social Google/Facebook
 app.use('/api/password', require('./routes/password.routes')); // Recuperación de contraseña
-app.use('/api/soporte', require('./routes/soporte.routes'));   // Tickets de soporte
+app.use('/api/soporte',         require('./routes/soporte.routes'));         // Tickets de soporte
+app.use('/api/delete-account', require('./routes/delete-account.routes')); // Eliminación de cuenta
 
 // ─── ICE Servers para WebRTC (llamadas) ──────────────────────────────────────
 app.use('/api', require('./routes/ice.routes'));
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get('/health', (_, res) => res.json({ status: 'ok', timestamp: new Date() }));
+
+// ─── Páginas públicas ─────────────────────────────────────────────────────────
+const publicDir = path.join(__dirname, '../public');
+app.get(['/privacidad', '/privacy'], (_, res) =>
+  res.sendFile(path.join(publicDir, 'privacidad.html'))
+);
+app.get(['/eliminarcuenta', '/delete-account'], (_, res) =>
+  res.sendFile(path.join(publicDir, 'eliminarcuenta.html'))
+);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((_, res) => res.status(404).json({ message: 'Ruta no encontrada' }));

@@ -181,6 +181,10 @@ const usuarioSchema = new mongoose.Schema(
     // ── Recuperación de contraseña ────────────────────────────
     resetPasswordCode: { type: String, default: null, select: false },  // código 6 dígitos (hasheado)
     resetPasswordExpires: { type: Date, default: null, select: false },  // expira en 15 min
+
+    // ── Eliminación de cuenta ─────────────────────────────────
+    deleteAccountCode:    { type: String, default: null, select: false },
+    deleteAccountExpires: { type: Date,   default: null, select: false },
   },
   { timestamps: true }
 );

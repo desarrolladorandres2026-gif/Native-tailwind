@@ -45,8 +45,12 @@ const forgotPassword = async (req, res) => {
     usuario.resetPasswordExpires = expires;
     await usuario.save({ validateBeforeSave: false });
 
-    // Enviar email
-    await enviarCorreoReset(correoNorm, usuario.first_name, code);
+    // Enviar email (fallo no-fatal: el código ya se imprimió en consola)
+    try {
+      await enviarCorreoReset(correoNorm, usuario.first_name, code);
+    } catch (mailErr) {
+      console.error('forgotPassword — fallo al enviar email:', mailErr.message);
+    }
 
     res.json({
       message: 'Si ese correo está registrado, recibirás un código en breve.',

@@ -39,8 +39,13 @@ const enviarCodigoVerif = async (req, res) => {
     const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutos
 
     verificationCodes.set(correoNorm, { code, expiresAt, intentos: 0, verified: false });
+    console.log(`[VERIF] Código para ${correoNorm}: ${code}`);
 
-    await enviarCodigoVerificacionRegistro(correoNorm, nombre?.trim() || 'Usuario', code);
+    try {
+      await enviarCodigoVerificacionRegistro(correoNorm, nombre?.trim() || 'Usuario', code);
+    } catch (mailErr) {
+      console.error('enviarCodigoVerif — fallo al enviar email:', mailErr.message);
+    }
 
     res.json({ message: 'Código enviado correctamente' });
   } catch (err) {
