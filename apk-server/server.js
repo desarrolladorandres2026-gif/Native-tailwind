@@ -185,11 +185,13 @@ app.post('/api/delete-account/confirm', async (req, res) => {
 });
 
 // ── Panel de Administración ───────────────────────────────────────────────────
+// El panel admin lo sirve el BACKEND (puerto 3000). En producción, nginx debe
+// enrutar /admin y /api/admin al backend (ver nginx.conf). Este redirect solo
+// aplica en acceso directo local (apk-server:3030 → backend:3000).
 const ADMIN_PORT = process.env.ADMIN_PORT || 3000;
 app.get(/^\/admin(\/.*)?$/, (req, res) => {
-  const host = req.hostname || getLocalIP();
-  const target = `http://${host}:${ADMIN_PORT}${req.originalUrl}`;
-  res.redirect(302, target);
+  const host = (req.headers.host || '').split(':')[0] || getLocalIP();
+  res.redirect(302, `http://${host}:${ADMIN_PORT}${req.originalUrl}`);
 });
 
 // ── Política de Privacidad (requerida por Google Play) ────────────────────────
@@ -201,6 +203,16 @@ app.get(['/privacidad', '/privacy'], (_, res) =>
 // ── Eliminación de cuenta (requerida por Google Play) ─────────────────────────
 app.get(['/eliminarcuenta', '/delete-account'], (_, res) =>
   res.sendFile(path.join(publicDir, 'eliminarcuenta.html'))
+);
+
+// ── Estándares CSAE (requerida por Google Play) ───────────────────────────────
+app.get(['/csae', '/proteccion-infantil'], (_, res) =>
+  res.sendFile(path.join(publicDir, 'csae.html'))
+);
+
+// ── Verificación de Google Search Console ─────────────────────────────────────
+app.get('/googlece10d5045ba4130d.html', (_, res) =>
+  res.sendFile(path.join(publicDir, 'googlece10d5045ba4130d.html'))
 );
 
 function getLocalIP() {
@@ -270,9 +282,10 @@ app.get('/', async (req, res) => {
   const downloadURL = BASE_URL ? `${BASE_URL}/download` : `http://${localIP}:${PORT}/download`;
   const apkInfo = getAPKInfo();
 
+  const qrURL = 'https://debuta.online/';
   let qrSVG = '';
   try {
-    qrSVG = await QRCode.toString(downloadURL, {
+    qrSVG = await QRCode.toString(qrURL, {
       type: 'svg',
       width: 220,
       margin: 1,
@@ -926,22 +939,11 @@ app.get('/', async (req, res) => {
           <div class="qr-border">
             <div class="qr-inner">
               <div class="qr-header">
-                <span class="qr-title">Escanea para descargar</span>
-                <span class="qr-sub">Apunta la cámara al código</span>
+                <span class="qr-title">Escanea para visitar Debuta</span>
+                <span class="qr-sub">Te lleva a debuta.online</span>
               </div>
               <div class="qr-img-wrap">
-                ${apkAvailable
-                  ? `<div class="qr-glow"></div><div class="qr-bg">${qrSVG}</div>`
-                  : `<div class="qr-empty">
-                      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
-                        <rect x="3" y="3" width="7" height="7" rx="1"/>
-                        <rect x="14" y="3" width="7" height="7" rx="1"/>
-                        <rect x="3" y="14" width="7" height="7" rx="1"/>
-                        <path d="M14 14h2v2h-2zM18 14h3M14 18h2v3h-2zM18 18h3v3h-3z"/>
-                      </svg>
-                      <p>Coloca el .apk en<br/><code>apk-server/apks/</code></p>
-                    </div>`
-                }
+                <div class="qr-glow"></div><div class="qr-bg">${qrSVG}</div>
               </div>
               <div class="url-bar">
                 <svg class="url-bar-icon" width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">

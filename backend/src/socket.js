@@ -5,6 +5,8 @@ const Mensaje = require('./models/mensaje.model');
 const Match = require('./models/match.model');
 const Usuario = require('./models/usuario.model');
 const Restaurante = require('./models/restaurante.model');
+const { contienePalabraOfensiva } = require('./helpers/moderador');
+const { enviarPushAUsuario } = require('./helpers/push');
 
 let io;
 
@@ -52,7 +54,8 @@ const initSocket = (server) => {
       ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
       : [];
     corsConfig.origin = (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      const isLocal = origin && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+      if (!origin || isLocal || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error('CORS bloqueado por Socket.io'));
@@ -131,6 +134,11 @@ const initSocket = (server) => {
         const yoId = new mongoose.Types.ObjectId(usuarioId);
         const otroId = new mongoose.Types.ObjectId(paraId);
 
+        if (contienePalabraOfensiva(content)) {
+          socket.emit('mensaje:rechazado', { reason: 'contenido_inapropiado' });
+          return;
+        }
+
         const ids = [yoId, otroId].sort();
         const match = await Match.findOne({ usuarios: { $all: ids, $size: 2 }, esMatch: true });
 
@@ -159,6 +167,29 @@ const initSocket = (server) => {
         io.to(`user:${paraId}`)
           .to(`user:${usuarioId}`)
           .emit('mensaje:nuevo', payload);
+
+        // ── Push si el receptor está offline (app cerrada) ────────────────
+        // Si tiene un socket conectado, ya recibió el evento en vivo y verá
+        // el toast in-app, así que evitamos la notificación duplicada.
+        if (!isOnline(paraId)) {
+          const preview = (content || '').trim();
+          enviarPushAUsuario(
+            paraId,
+            {
+              title: payload.senderName || 'Nuevo mensaje',
+              body: preview.length > 120 ? `${preview.slice(0, 117)}…` : preview,
+              channelId: 'messages',
+              priority: 'high',
+              data: {
+                type: 'message',
+                fromId: String(usuarioId),
+                senderName: payload.senderName,
+                senderPhoto: payload.senderPhoto || null,
+              },
+            },
+            'notif_messages',
+          );
+        }
 
         // ── Racha de conversación ─────────────────────────────────────────
         const msgNow     = new Date();
@@ -241,6 +272,8 @@ const initSocket = (server) => {
                 .emit('cita:sugerencia', sugerenciaPayload);
 
               console.log(`💑 Sugerencia de cita enviada para match ${match._id} → ${restaurante.nombre}`);
+            } else {
+              console.warn(`⚠️ [CITA] Match ${match._id} llegó a ${totalMensajes} mensajes pero NO hay restaurantes elegibles (activo:true y nombre no vacío). Carga al menos un restaurante para que aparezca la sugerencia de primera cita.`);
             }
           }
         }
@@ -314,6 +347,25 @@ const initSocket = (server) => {
           callerPhoto: resolvedPhoto,
           ts: Date.now(),
         });
+        // Push de llamada entrante de alta prioridad. Al tocarla, el usuario
+        // abre la app, el socket reconecta y la llamada pendiente se entrega
+        // automáticamente (mientras no supere el TTL de 60 s).
+        enviarPushAUsuario(String(paraId), {
+          title: isVideo ? '📹 Videollamada entrante' : '📞 Llamada entrante',
+          body: `${resolvedName} te está llamando…`,
+          channelId: 'calls',
+          priority: 'high',
+          sound: 'default',
+          ttl: 60, // coincide con PENDING_CALL_TTL_MS
+          data: {
+            type: 'call',
+            fromId: String(usuarioId),
+            callerName: resolvedName,
+            callerPhoto: resolvedPhoto,
+            isVideo: !!isVideo,
+          },
+        });
+
         // Informar al llamante que está esperando (no cortar la llamada)
         socket.emit('call:waiting', { paraId, reason: 'offline' });
         console.log(`✅ [CALL] Llamada pendiente guardada para ${paraId}`);

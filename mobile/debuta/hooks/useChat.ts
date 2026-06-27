@@ -43,6 +43,7 @@ export function useChat(matchedUserId: string) {
   const [sending,  setSending]  = useState(false);
   const [myId,     setMyId]     = useState<string | null>(null);
   const [matchId,  setMatchId]  = useState<string | null>(null);
+  const [mensajeRechazado, setMensajeRechazado] = useState(false);
 
   // ── Estado de sugerencia de cita ─────────────────────────────────────────
   const [dateSuggestion, setDateSuggestion] = useState<DateSuggestion | null>(null);
@@ -111,10 +112,13 @@ export function useChat(matchedUserId: string) {
     }
 
     const onMessage = (msg: Message) => {
-      // Solo agregar si pertenece a esta conversación
       const involucrado =
         msg.sender_id === matchedUserId || msg.receiver_id === matchedUserId;
       if (involucrado) addMessages([msg]);
+    };
+
+    const onMensajeRechazado = () => {
+      setMensajeRechazado(true);
     };
 
     const onDateSuggestion = (data: DateSuggestion) => {
@@ -135,15 +139,17 @@ export function useChat(matchedUserId: string) {
       });
     };
 
-    socket.on('mensaje:nuevo',          onMessage);
-    socket.on('cita:sugerencia',        onDateSuggestion);
-    socket.on('cita:nueva-sugerencia',  onNewSuggestion);
+    socket.on('mensaje:nuevo',           onMessage);
+    socket.on('mensaje:rechazado',       onMensajeRechazado);
+    socket.on('cita:sugerencia',         onDateSuggestion);
+    socket.on('cita:nueva-sugerencia',   onNewSuggestion);
     socket.on('cita:estado-actualizado', onStatusUpdated);
 
     return () => {
-      socket.off('mensaje:nuevo',          onMessage);
-      socket.off('cita:sugerencia',        onDateSuggestion);
-      socket.off('cita:nueva-sugerencia',  onNewSuggestion);
+      socket.off('mensaje:nuevo',           onMessage);
+      socket.off('mensaje:rechazado',       onMensajeRechazado);
+      socket.off('cita:sugerencia',         onDateSuggestion);
+      socket.off('cita:nueva-sugerencia',   onNewSuggestion);
       socket.off('cita:estado-actualizado', onStatusUpdated);
       if (pollRef.current) {
         clearInterval(pollRef.current);
@@ -158,18 +164,21 @@ export function useChat(matchedUserId: string) {
     setSending(true);
     try {
       if (socket?.connected) {
-        // Vía Socket.io — el servidor emite 'mensaje:nuevo' a ambos
         socket.emit('mensaje:enviar', { paraId: matchedUserId, content: content.trim() });
       } else {
-        // Fallback HTTP
         const data = await api.post<{ mensaje: Message }>(
           `/chat/${matchedUserId}`,
           { content: content.trim() }
         );
         addMessages([data.mensaje]);
       }
-    } catch (e) {
-      console.error('Error sending message:', e);
+    } catch (e: any) {
+      const msg: string = e?.response?.data?.message ?? '';
+      if (msg.toLowerCase().includes('inapropiado')) {
+        setMensajeRechazado(true);
+      } else {
+        console.error('Error sending message:', e);
+      }
     } finally {
       setSending(false);
     }
@@ -216,8 +225,19 @@ export function useChat(matchedUserId: string) {
     }
   }, []);
 
+  const clearMensajeRechazado = useCallback(() => setMensajeRechazado(false), []);
+
+  // ── Eliminar conversación (borra todos los mensajes) ───────────────────────
+  const deleteConversation = useCallback(async () => {
+    await api.delete(`/chat/${matchedUserId}`);
+    msgIds.current = new Set();
+    setMessages([]);
+    setDateSuggestion(null);
+  }, [matchedUserId]);
+
   return {
     messages, loading, sending, sendMessage, myId, matchId,
     dateSuggestion, dateLoading, acceptDate, rejectDate, requestNewPlace,
+    mensajeRechazado, clearMensajeRechazado, deleteConversation,
   };
 }

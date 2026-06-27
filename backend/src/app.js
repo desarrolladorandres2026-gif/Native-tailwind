@@ -8,12 +8,15 @@ if (process.env.NODE_ENV === 'production') {
   const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
     : [];
-  app.use(cors({
-    origin: (origin, cb) => {
-      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-      cb(new Error(`CORS bloqueado: ${origin}`));
-    },
-    credentials: true,
+  app.use(cors((req, cb) => {
+    const origin = req.header('Origin');
+    const host   = req.get('host');
+    // Permitir mismo host (el panel admin lo sirve el propio backend → same-origin)
+    // y localhost (desarrollo), además de la lista blanca de producción.
+    const sameHost  = origin && host && origin.replace(/^https?:\/\//, '') === host;
+    const isLocal   = origin && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+    const permitido = !origin || sameHost || isLocal || allowedOrigins.includes(origin);
+    cb(permitido ? null : new Error(`CORS bloqueado: ${origin}`), { origin: permitido, credentials: true });
   }));
 } else {
   app.use(cors());
@@ -25,8 +28,10 @@ app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
 // ─── Panel de Administración (archivos estáticos) ─────────────────────────────
 const adminDir = path.join(__dirname, '../../admin');
-app.use('/admin', express.static(adminDir));
+// Servir index.html ANTES del static evita el redirect 301 /admin → /admin/
+// (frágil detrás de un proxy). { redirect:false } evita que serve-static lo reañada.
 app.get('/admin', (_, res) => res.sendFile(path.join(adminDir, 'index.html')));
+app.use('/admin', express.static(adminDir, { redirect: false }));
 app.get('/admin/*', (_, res) => res.sendFile(path.join(adminDir, 'index.html')));
 
 // ─── Rutas existentes ─────────────────────────────────────────────────────────
@@ -47,6 +52,7 @@ app.use('/api/auth',     require('./routes/social.routes'));   // Auth social Go
 app.use('/api/password', require('./routes/password.routes')); // Recuperación de contraseña
 app.use('/api/soporte',         require('./routes/soporte.routes'));         // Tickets de soporte
 app.use('/api/delete-account', require('./routes/delete-account.routes')); // Eliminación de cuenta
+app.use('/api/notifications',  require('./routes/notification.routes'));   // Push tokens (Expo)
 
 // ─── ICE Servers para WebRTC (llamadas) ──────────────────────────────────────
 app.use('/api', require('./routes/ice.routes'));

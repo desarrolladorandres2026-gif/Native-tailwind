@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1038928935374",
+    "project_id": "debuta-26277",
+    "storage_bucket": "debuta-26277.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1038928935374:android:dd5c669e479701255c939f",
+        "android_client_info": {
+          "package_name": "com.andressofia.debuta"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBoUylDZOaZ22kWDsh1vb8Wtz5E3zWhkLE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

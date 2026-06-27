@@ -1,7 +1,7 @@
 // CallScreen.tsx — Pantalla de llamada con WebRTC real (audio + video)
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, Image, TouchableOpacity,
+  View, Text, StyleSheet, Image, TouchableOpacity, Pressable,
   Dimensions, Animated, StatusBar, Platform, BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -51,6 +51,15 @@ export default function CallScreen() {
   const [isSpeaker, setIsSpeaker] = useState(isVideo === 'true');
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  // Visibilidad de cabecera y controles (auto-ocultado estilo WhatsApp)
+  const [controlsVisible, setControlsVisible] = useState(true);
+
+  // ── Modo videollamada ──────────────────────────────────────────────────────
+  const showVideo = isVideo === 'true';
+  // Videollamada conectada con stream remoto → modo pantalla completa estilo
+  // WhatsApp: el video del otro usuario ocupa toda la pantalla y se ocultan el
+  // avatar central y los anillos para que no queden encima del video.
+  const isVideoActive = showVideo && isConnected && !!remoteStream && !!RTCView;
 
   // Detectar cuando el stream remoto llega → llamada conectada
   useEffect(() => {
@@ -67,11 +76,54 @@ export default function CallScreen() {
   const ring2Anim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const btnScaleAnim = useRef(new Animated.Value(0.85)).current;
+  const controlsOpacity = useRef(new Animated.Value(1)).current;
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
     Animated.spring(btnScaleAnim, { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }).start();
   }, []);
+
+  // ── Auto-ocultado de controles en videollamada (estilo WhatsApp) ────────────
+  const clearHideTimer = useCallback(() => {
+    if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null; }
+  }, []);
+
+  const scheduleHide = useCallback(() => {
+    clearHideTimer();
+    hideTimer.current = setTimeout(() => setControlsVisible(false), 3000);
+  }, [clearHideTimer]);
+
+  // Tocar la pantalla alterna la visibilidad de cabecera y controles
+  const handleScreenTap = useCallback(() => {
+    setControlsVisible(prev => {
+      const next = !prev;
+      if (next) scheduleHide(); else clearHideTimer();
+      return next;
+    });
+  }, [scheduleHide, clearHideTimer]);
+
+  // Al entrar/salir de videollamada activa: mostrar controles y (si activa)
+  // arrancar el temporizador de auto-ocultado. Fuera de video siempre visibles.
+  useEffect(() => {
+    if (isVideoActive) {
+      setControlsVisible(true);
+      scheduleHide();
+    } else {
+      clearHideTimer();
+      setControlsVisible(true);
+    }
+    return clearHideTimer;
+  }, [isVideoActive, scheduleHide, clearHideTimer]);
+
+  // Animar la opacidad de cabecera/controles/gradientes al cambiar visibilidad
+  useEffect(() => {
+    Animated.timing(controlsOpacity, {
+      toValue: controlsVisible ? 1 : 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [controlsVisible]);
 
   useEffect(() => {
     if (!isConnected) {
@@ -150,8 +202,15 @@ export default function CallScreen() {
     rejectCall();
   }, [rejectCall]);
 
+  // Al interactuar con un control reiniciamos el temporizador para que los
+  // controles no se oculten justo después de tocarlos.
+  const bumpControls = useCallback(() => {
+    if (isVideoActive) scheduleHide();
+  }, [isVideoActive, scheduleHide]);
+
   const handleMuteToggle = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    bumpControls();
     const newMuted = !isMuted;
     setIsMuted(newMuted);
     toggleMute(newMuted);   // ← conecta con WebRTC real
@@ -159,6 +218,7 @@ export default function CallScreen() {
 
   const handleSpeakerToggle = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    bumpControls();
     const newSpeaker = !isSpeaker;
     setIsSpeaker(newSpeaker);
     try {
@@ -172,13 +232,11 @@ export default function CallScreen() {
 
   const handleCameraToggle = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    bumpControls();
     const newOff = !isCameraOff;
     setIsCameraOff(newOff);
     toggleCamera(newOff);   // ← conecta con WebRTC real
   };
-
-  // ── Video streams ──────────────────────────────────────────────────────────
-  const showVideo = isVideo === 'true';
 
   return (
     <View style={s.root}>
@@ -206,13 +264,43 @@ export default function CallScreen() {
         </>
       )}
 
-      {/* Overlay degradado */}
-      <LinearGradient
-        colors={['rgba(5,0,20,0.65)', 'rgba(10,0,35,0.8)', 'rgba(5,0,20,0.9)']}
-        style={StyleSheet.absoluteFill}
-      />
+      {/* Overlay degradado:
+          - En videollamada activa solo oscurecemos arriba y abajo para que el
+            nombre y los controles se lean, dejando el video visible en el centro.
+          - En el resto de casos cubrimos toda la pantalla. */}
+      {isVideoActive ? (
+        <Animated.View
+          style={[StyleSheet.absoluteFill, { opacity: controlsOpacity }]}
+          pointerEvents="none"
+        >
+          <LinearGradient
+            colors={['rgba(5,0,20,0.75)', 'transparent']}
+            style={s.topGradient}
+          />
+          <LinearGradient
+            colors={['transparent', 'rgba(5,0,20,0.85)']}
+            style={s.bottomGradient}
+          />
+        </Animated.View>
+      ) : (
+        <LinearGradient
+          colors={['rgba(5,0,20,0.65)', 'rgba(10,0,35,0.8)', 'rgba(5,0,20,0.9)']}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+      )}
 
-      <Animated.View style={[{ flex: 1, opacity: fadeAnim }]}>
+      {/* Capa táctil de fondo: cuando los controles están ocultos el contenido
+          es pointerEvents="none", así que cualquier toque llega aquí y los vuelve
+          a mostrar. (Para ocultarlos cuando están visibles está la zona central.) */}
+      {isVideoActive && (
+        <Pressable style={StyleSheet.absoluteFill} onPress={handleScreenTap} />
+      )}
+
+      <Animated.View
+        style={[{ flex: 1, opacity: Animated.multiply(fadeAnim, controlsOpacity) }]}
+        pointerEvents={isVideoActive && !controlsVisible ? 'none' : 'auto'}
+      >
         <SafeAreaView style={s.safe}>
 
           {/* ── Cabecera ──────────────────────────────────────────────────── */}
@@ -227,9 +315,19 @@ export default function CallScreen() {
                 {isVideo === 'true' ? 'Video llamada' : 'Llamada de voz'}
               </Text>
             </View>
+
+            {/* En videollamada activa el nombre y el cronómetro van arriba,
+                porque el centro lo ocupa el video del otro usuario. */}
+            {isVideoActive && (
+              <>
+                <Text style={s.videoHeaderName} numberOfLines={1}>{name}</Text>
+                <Text style={s.videoHeaderTimer}>{statusText()}</Text>
+              </>
+            )}
           </View>
 
-          {/* ── Centro: Avatar con anillos (o video local en miniatura) ───── */}
+          {/* ── Centro: Avatar con anillos · oculto en videollamada activa ─── */}
+          {!isVideoActive && (
           <View style={s.avatarSection}>
             {!isConnected && (
               <>
@@ -261,17 +359,12 @@ export default function CallScreen() {
               </View>
             )}
           </View>
+          )}
 
-          {/* ── Video local en miniatura (esquina superior derecha) ─────────── */}
-          {showVideo && localStream && isConnected && RTCView && (
-            <View style={s.localVideoContainer}>
-              <RTCView
-                streamURL={localStream.toURL()}
-                style={s.localVideo}
-                objectFit="cover"
-                mirror
-              />
-            </View>
+          {/* ── Centro táctil: en videollamada llena el espacio entre cabecera
+                 y controles; al tocarlo se alternan (ocultar cuando visibles). */}
+          {isVideoActive && (
+            <Pressable style={s.videoTapZone} onPress={handleScreenTap} />
           )}
 
           {/* ── Footer: controles ─────────────────────────────────────────── */}
@@ -349,6 +442,20 @@ export default function CallScreen() {
 
         </SafeAreaView>
       </Animated.View>
+
+      {/* ── Video local en miniatura ──────────────────────────────────────────
+          Fuera del contenedor que se desvanece: permanece visible aunque se
+          oculten los controles, como en WhatsApp. */}
+      {showVideo && localStream && isConnected && RTCView && (
+        <View style={s.localVideoContainer} pointerEvents="none">
+          <RTCView
+            streamURL={localStream.toURL()}
+            style={s.localVideo}
+            objectFit="cover"
+            mirror
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -368,6 +475,25 @@ const s = StyleSheet.create({
     borderRadius: 20,
   },
   callTypeText: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '600' },
+
+  // Gradientes parciales en modo videollamada (solo arriba y abajo)
+  topGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 200 },
+  bottomGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 280 },
+
+  // Zona central táctil para alternar controles sobre el video
+  videoTapZone: { flex: 1 },
+
+  // Nombre y cronómetro en la cabecera durante la videollamada
+  videoHeaderName: {
+    color: 'white', fontSize: 22, fontWeight: '800',
+    marginTop: 12, letterSpacing: -0.4,
+    ...textShadow('rgba(0,0,0,0.6)', 1, 5),
+  },
+  videoHeaderTimer: {
+    color: 'rgba(255,255,255,0.8)', fontSize: 15, fontWeight: '600',
+    marginTop: 2,
+    ...textShadow('rgba(0,0,0,0.6)', 1, 4),
+  },
 
   avatarSection: { alignItems: 'center', flex: 1, justifyContent: 'center' },
   ring: {

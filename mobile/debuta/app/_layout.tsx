@@ -12,6 +12,7 @@ SplashScreenSDK.preventAutoHideAsync();
 import { SocketProvider } from '../context/SocketContext';
 import { CallProvider } from '../context/CallContext';
 import { NotificationProvider } from '../context/NotificationContext';
+import { PushNotificationProvider } from '../context/PushNotificationProvider';
 
 export default function RootLayout() {
   const hidden = useRef(false);
@@ -29,9 +30,10 @@ export default function RootLayout() {
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <ThemeProvider>
         <SocketProvider>
-          <NotificationProvider>
-            <CallProvider>
-              <AlertProvider>
+          <PushNotificationProvider>
+            <NotificationProvider>
+              <CallProvider>
+                <AlertProvider>
                 <Stack screenOptions={{ headerShown: false }}>
                   <Stack.Screen name="index" options={{ headerShown: false }} />
                   <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -51,9 +53,10 @@ export default function RootLayout() {
                   <Stack.Screen name="partner" options={{ headerShown: false }} />
                 </Stack>
                 <StatusBar style="auto" />
-              </AlertProvider>
-            </CallProvider>
-          </NotificationProvider>
+                </AlertProvider>
+              </CallProvider>
+            </NotificationProvider>
+          </PushNotificationProvider>
         </SocketProvider>
       </ThemeProvider>
     </SafeAreaProvider>

@@ -382,6 +382,7 @@ export default function ChatScreen() {
   const {
     messages, loading, sending, sendMessage, myId, matchId,
     dateSuggestion, dateLoading, acceptDate, requestNewPlace,
+    mensajeRechazado, clearMensajeRechazado, deleteConversation,
   } = useChat(userId);
   const { online, lastSeen } = usePresence(userId);
   const { socket } = useSocket();
@@ -417,6 +418,16 @@ export default function ChatScreen() {
   useEffect(() => {
     if (streak > 0) updateBestStreak(streak);
   }, [streak]);
+
+  // ── Alerta de mensaje rechazado por moderación ───────────────────────────────
+  useEffect(() => {
+    if (!mensajeRechazado) return;
+    Alert.alert(
+      'Mensaje no enviado',
+      'Tu mensaje contiene lenguaje inapropiado. Por favor sé respetuoso con los demás.',
+      [{ text: 'Entendido', onPress: clearMensajeRechazado }]
+    );
+  }, [mensajeRechazado]);
 
   // ── Keyboard listeners para Android ─────────────────────────────────────────
   useEffect(() => {
@@ -505,6 +516,30 @@ export default function ChatScreen() {
               router.back();
             } catch (e: any) {
               Alert.alert('Error', e?.message || 'No se pudo bloquear. Intenta de nuevo.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteConversation = () => {
+    setShowOptionsMenu(false);
+    Alert.alert(
+      'Eliminar conversación',
+      `Se borrarán todos los mensajes con ${name}. Esta acción no se puede deshacer.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteConversation();
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              router.back();
+            } catch (e: any) {
+              Alert.alert('Error', e?.message || 'No se pudo eliminar la conversación. Intenta de nuevo.');
             }
           },
         },
@@ -755,6 +790,14 @@ export default function ChatScreen() {
               >
                 <Ionicons name="flag-outline" size={22} color="#FF9500" />
                 <Text style={[om.optionText, { color: colors.text }]}>Reportar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[om.option, { borderBottomColor: colors.glassBorder }]}
+                onPress={handleDeleteConversation}
+              >
+                <Ionicons name="trash-outline" size={22} color="#FF3B30" />
+                <Text style={[om.optionText, { color: colors.text }]}>Eliminar conversación</Text>
               </TouchableOpacity>
 
               <TouchableOpacity

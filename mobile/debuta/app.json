@@ -2,7 +2,7 @@
   "expo": {
     "name": "debuta",
     "slug": "debuta",
-    "version": "1.0.0",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "debuta",
@@ -31,8 +31,11 @@
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.CHANGE_NETWORK_STATE",
         "android.permission.ACCESS_WIFI_STATE",
-        "android.permission.WAKE_LOCK"
+        "android.permission.WAKE_LOCK",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE"
       ],
+      "googleServicesFile": "./google-services.json",
       "package": "com.andressofia.debuta"
     },
     "web": {
@@ -59,7 +62,13 @@
       "expo-web-browser",
       "@react-native-community/datetimepicker",
       "expo-audio",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-notifications",
+        {
+          "color": "#FD297B"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

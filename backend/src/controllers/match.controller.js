@@ -55,16 +55,24 @@ const darLike = async (req, res) => {
         const yoFoto   = yo?.profile_picture?.url || yo?.profile_picture || null;
 
         if (hayMutuo) {
-          const matchPayload = {
-            matchId:    match._id,
-            fromId:     String(yoId),
-            fromName:   yoNombre,
-            fromPhoto:  yoFoto,
-          };
-          io.to(`user:${String(targetId)}`).emit('match:nuevo', matchPayload);
+          // Cargar al otro usuario para que CADA uno vea el nombre del OTRO.
+          const otro = await Usuario.findById(targetId).select('first_name username profile_picture').lean();
+          const otroNombre = otro?.first_name || otro?.username || 'Alguien';
+          const otroFoto   = otro?.profile_picture?.url || otro?.profile_picture || null;
+
+          // Al otro usuario le mostramos MIS datos.
+          io.to(`user:${String(targetId)}`).emit('match:nuevo', {
+            matchId:   match._id,
+            fromId:    String(yoId),
+            fromName:  yoNombre,
+            fromPhoto: yoFoto,
+          });
+          // A mí me mostramos los datos del OTRO.
           io.to(`user:${String(yoId)}`).emit('match:nuevo', {
-            ...matchPayload,
-            fromId:   String(targetId),
+            matchId:   match._id,
+            fromId:    String(targetId),
+            fromName:  otroNombre,
+            fromPhoto: otroFoto,
           });
         } else {
           io.to(`user:${String(targetId)}`).emit('like:recibido', {
@@ -340,9 +348,12 @@ const darSuperLike = async (req, res) => {
         const yoFoto   = yoData?.profile_picture?.url || yoData?.profile_picture || null;
 
         if (hayMutuo) {
-          const matchPayload = { matchId: match._id, fromId: String(yoId), fromName: yoNombre, fromPhoto: yoFoto };
-          io.to(`user:${String(targetId)}`).emit('match:nuevo', matchPayload);
-          io.to(`user:${String(yoId)}`).emit('match:nuevo', { ...matchPayload, fromId: String(targetId) });
+          // Cargar al otro usuario para que CADA uno vea el nombre del OTRO.
+          const otro = await Usuario.findById(targetId).select('first_name username profile_picture').lean();
+          const otroNombre = otro?.first_name || otro?.username || 'Alguien';
+          const otroFoto   = otro?.profile_picture?.url || otro?.profile_picture || null;
+          io.to(`user:${String(targetId)}`).emit('match:nuevo', { matchId: match._id, fromId: String(yoId), fromName: yoNombre, fromPhoto: yoFoto });
+          io.to(`user:${String(yoId)}`).emit('match:nuevo', { matchId: match._id, fromId: String(targetId), fromName: otroNombre, fromPhoto: otroFoto });
         } else {
           io.to(`user:${String(targetId)}`).emit('superlike:recibido', {
             fromId: String(yoId), fromName: yoNombre, fromPhoto: yoFoto,
@@ -416,12 +427,20 @@ const listarMatches = async (req, res) => {
       const otroUsuario = m.usuarios.find(u => u && !u._id.equals(yoId));
       if (!otroUsuario) return null;
 
-      const lastMsg = await Mensaje.findOne({ matchId: m._id })
+      // Soft-delete por usuario: ignorar los mensajes anteriores a la eliminación
+      const borrado = (m.eliminadaPor || []).find(e => e.usuario && e.usuario.equals(yoId));
+      const filtroMsg = { matchId: m._id };
+      if (borrado) filtroMsg.createdAt = { $gt: borrado.fecha };
+
+      const lastMsg = await Mensaje.findOne(filtroMsg)
         .sort({ createdAt: -1 })
         .lean();
 
+      // Si eliminó la conversación y no hay mensajes nuevos, ocultarla de la lista
+      if (borrado && !lastMsg) return null;
+
       const unreadCount = await Mensaje.countDocuments({
-        matchId: m._id,
+        ...filtroMsg,
         receiver_id: yoId,
         is_read: false,
       });

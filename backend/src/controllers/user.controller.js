@@ -112,8 +112,14 @@ const register = async (req, res) => {
     if (!telefono) errores.push('El teléfono es obligatorio');
     else if (!/^\d{10}$/.test(telefonoNorm))
       errores.push('El teléfono debe tener exactamente 10 dígitos');
-    if (!password || password.length < 6)
-      errores.push('La contraseña debe tener mínimo 6 caracteres');
+    if (!password || password.length < 8) {
+      errores.push('La contraseña debe tener mínimo 8 caracteres');
+    } else {
+      if (!/[A-Z]/.test(password)) errores.push('La contraseña debe incluir al menos una letra mayúscula');
+      if (!/[a-z]/.test(password)) errores.push('La contraseña debe incluir al menos una letra minúscula');
+      if (!/\d/.test(password))    errores.push('La contraseña debe incluir al menos un número');
+      if (!/[^A-Za-z0-9]/.test(password)) errores.push('La contraseña debe incluir al menos un carácter especial');
+    }
     if (!genero) errores.push('El género es obligatorio');
     if (!fechaNacimiento) errores.push('La fecha de nacimiento es obligatoria');
 
@@ -276,6 +282,7 @@ const discover = async (req, res) => {
 
     const usuarios = await Usuario.find(filtro)
       .select('first_name last_name username bio profile_picture photos interests gender birth_date latitude longitude is_verified ciudad pais location_label social_friend_ids buscando')
+      .sort({ createdAt: -1 })
       .skip((pagina - 1) * Number(limite))
       .limit(Number(limite))
       .lean();

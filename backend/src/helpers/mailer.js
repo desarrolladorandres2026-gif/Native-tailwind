@@ -1,19 +1,39 @@
 /**
  * mailer.js
- * Helper para enviar correos con Nodemailer.
+ * Helper para enviar correos transaccionales.
  *
- * Usa un proveedor SMTP transaccional (Brevo, Resend, SES, etc.) si están
- * definidas las variables SMTP_*; de lo contrario cae a Gmail (legacy, tiende
- * a ir a spam). Para salir de spam: configurar un SMTP con tu dominio propio
- * (debuta.online) y registros SPF + DKIM + DMARC en el DNS.
+ * Orden de preferencia del proveedor (el primero disponible gana):
+ *   1. Resend  → si está definida RESEND_API_KEY (API HTTP, recomendado: no
+ *      depende de puertos SMTP que muchos hosts bloquean y firma DKIM solo).
+ *   2. SMTP    → si está definido SMTP_HOST (Brevo, SES, Resend-SMTP, etc.).
+ *   3. Gmail   → fallback legacy con EMAIL_USER/EMAIL_PASS (tiende a ir a spam).
+ *
+ * Para que los correos NO caigan en spam hay que verificar el dominio propio
+ * (debuta.online) en el proveedor y publicar SPF + DKIM + DMARC en el DNS.
+ * Mientras el dominio no esté verificado en Resend, solo se puede enviar desde
+ * "onboarding@resend.dev" y únicamente al correo dueño de la cuenta (modo test).
  */
 
 const nodemailer = require('nodemailer');
 
-function createTransporter() {
+// ── Cliente Resend (preferente) ───────────────────────────────────────────────
+let resendClient = null;
+if (process.env.RESEND_API_KEY) {
+  try {
+    const { Resend } = require('resend');
+    resendClient = new Resend(process.env.RESEND_API_KEY);
+  } catch (err) {
+    console.error('mailer — no se pudo inicializar Resend, se usará SMTP/Gmail:', err.message);
+  }
+}
+
+// ── Transporter Nodemailer (SMTP o Gmail), creado de forma perezosa ───────────
+let transporter = null;
+function getTransporter() {
+  if (transporter) return transporter;
   if (process.env.SMTP_HOST) {
     const port = Number(process.env.SMTP_PORT) || 587;
-    return nodemailer.createTransport({
+    transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port,
       secure: port === 465, // true solo para 465; 587 usa STARTTLS
@@ -22,23 +42,59 @@ function createTransporter() {
         pass: process.env.SMTP_PASS,
       },
     });
+  } else {
+    // Fallback legacy: Gmail. Funciona, pero suele caer en spam.
+    transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
   }
-  // Fallback legacy: Gmail. Funciona, pero suele caer en spam.
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
+  return transporter;
 }
 
-const transporter = createTransporter();
-
-// Remitente. Idealmente un buzón de tu dominio: "Debuta" <noreply@debuta.online>
-const MAIL_FROM = process.env.MAIL_FROM || `"Debuta" <${process.env.EMAIL_USER}>`;
+// Remitente. Con Resend debe ser un dominio verificado ("Debuta" <noreply@debuta.online>)
+// o "Debuta <onboarding@resend.dev>" mientras verificas tu dominio.
+const MAIL_FROM =
+  process.env.MAIL_FROM ||
+  (resendClient
+    ? 'Debuta <onboarding@resend.dev>'
+    : `"Debuta" <${process.env.EMAIL_USER}>`);
 // Buzón real para respuestas (opcional)
 const MAIL_REPLY_TO = process.env.MAIL_REPLY_TO || undefined;
+
+/**
+ * Envío centralizado: usa Resend si está configurado; si no, Nodemailer.
+ * @param {{ to: string, subject: string, html: string, text: string }} msg
+ */
+const enviarCorreo = async ({ to, subject, html, text }) => {
+  if (resendClient) {
+    const { data, error } = await resendClient.emails.send({
+      from: MAIL_FROM,
+      to,
+      subject,
+      html,
+      text,
+      ...(MAIL_REPLY_TO ? { replyTo: MAIL_REPLY_TO } : {}),
+    });
+    if (error) {
+      // El SDK de Resend no lanza: devuelve { error }. Lo normalizamos a throw.
+      throw new Error(error.message || JSON.stringify(error));
+    }
+    return data;
+  }
+
+  return getTransporter().sendMail({
+    from: MAIL_FROM,
+    replyTo: MAIL_REPLY_TO,
+    to,
+    subject,
+    text,
+    html,
+  });
+};
 
 /**
  * Envía un correo de recuperación de contraseña
@@ -143,9 +199,7 @@ Si no solicitaste este código, ignora este correo. Tu cuenta permanece segura.
 
 — Equipo Debuta`;
 
-  await transporter.sendMail({
-    from: MAIL_FROM,
-    replyTo: MAIL_REPLY_TO,
+  await enviarCorreo({
     to: toEmail,
     subject: `Tu código para restablecer la contraseña es ${code}`,
     text,
@@ -255,9 +309,7 @@ Si no creaste una cuenta en Debuta, ignora este correo.
 
 — Equipo Debuta`;
 
-  await transporter.sendMail({
-    from: MAIL_FROM,
-    replyTo: MAIL_REPLY_TO,
+  await enviarCorreo({
     to: toEmail,
     subject: `Tu código de verificación es ${code}`,
     text,
@@ -347,9 +399,7 @@ Esta acción es irreversible. Si no solicitaste esto, ignora este correo y cambi
 
 — Equipo Debuta`;
 
-  await transporter.sendMail({
-    from: MAIL_FROM,
-    replyTo: MAIL_REPLY_TO,
+  await enviarCorreo({
     to: toEmail,
     subject: `Código para eliminar tu cuenta de Debuta: ${code}`,
     text,
@@ -357,4 +407,9 @@ Esta acción es irreversible. Si no solicitaste esto, ignora este correo y cambi
   });
 };
 
-module.exports = { enviarCorreoReset, enviarCodigoVerificacionRegistro, enviarCodigoEliminacion };
+module.exports = {
+  enviarCorreo,
+  enviarCorreoReset,
+  enviarCodigoVerificacionRegistro,
+  enviarCodigoEliminacion,
+};

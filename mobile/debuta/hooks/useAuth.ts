@@ -4,6 +4,7 @@ import * as AuthSession from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
 import * as Facebook from 'expo-auth-session/providers/facebook';
 import { authService, RegisterData, LoginData, AuthUser } from '../components/services/authService';
+import { removePushToken } from '../components/services/pushNotifications';
 import Constants from 'expo-constants';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -165,6 +166,8 @@ export function useAuth() {
   // ─── Logout ───────────────────────────────────────────────────────────────
   const logout = useCallback(async (onSuccess?: () => void) => {
     setLoading(true);
+    // Quitar el push token del backend mientras el token de auth sigue siendo válido.
+    await removePushToken().catch(() => {});
     await authService.logout();
     setState({ user: null, loading: false, error: null });
     onSuccess?.();

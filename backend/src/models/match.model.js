@@ -38,6 +38,16 @@ const matchSchema = new mongoose.Schema(
     streak:          { type: Number, default: 0 },
     bestStreak:      { type: Number, default: 0 },
     lastMessageDate: { type: Date,   default: null },
+
+    // ── Eliminación de conversación por usuario (soft-delete) ───────────────────
+    // Cada entrada marca desde cuándo un usuario dejó de ver el historial previo.
+    // El otro usuario conserva sus mensajes; los mensajes posteriores reaparecen.
+    eliminadaPor: [
+      {
+        usuario: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario' },
+        fecha:   { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../theme/ThemeContext';
 import { useSocket } from '../context/SocketContext';
 import { boxShadow } from '../components/utils/shadow';
+import { syncPushToken } from '../components/services/pushNotifications';
 
 const { width: W } = Dimensions.get('window');
 
@@ -59,6 +60,8 @@ export default function LoginScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // Reconectar socket ahora que el token ya está guardado en AsyncStorage
       await reconnect();
+      // Registrar el token de notificaciones push (no bloquea el flujo de login)
+      syncPushToken();
       const rulesAccepted = await AsyncStorage.getItem('debuta_rules_accepted');
       if (!rulesAccepted) {
         router.replace('/rules');

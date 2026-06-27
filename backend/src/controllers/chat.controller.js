@@ -2,7 +2,11 @@ const mongoose    = require('mongoose');
 const Mensaje     = require('../models/mensaje.model');
 const Match       = require('../models/match.model');
 const Restaurante = require('../models/restaurante.model');
+const Usuario     = require('../models/usuario.model');
 const { uploadBuffer } = require('../helpers/cloudinary');
+const { contienePalabraOfensiva } = require('../helpers/moderador');
+const { enviarPushAUsuario } = require('../helpers/push');
+const { isOnline } = require('../socket');
 
 // Verifica que haya match entre yoId y otroId
 const getMatch = async (yoId, otroId) => {
@@ -25,7 +29,12 @@ const obtenerMensajes = async (req, res) => {
       return res.status(403).json({ message: 'No hay match entre estos usuarios' });
     }
 
-    const mensajes = await Mensaje.find({ matchId: match._id })
+    // Soft-delete por usuario: ocultar los mensajes anteriores a la eliminación
+    const filtroMensajes = { matchId: match._id };
+    const borrado = match.eliminadaPor?.find(e => e.usuario && e.usuario.equals(yoId));
+    if (borrado) filtroMensajes.createdAt = { $gt: borrado.fecha };
+
+    const mensajes = await Mensaje.find(filtroMensajes)
       .sort({ createdAt: 1 })
       .skip((pagina - 1) * Number(limite))
       .limit(Number(limite));
@@ -86,6 +95,10 @@ const enviarMensaje = async (req, res) => {
       return res.status(400).json({ message: 'El mensaje no puede estar vacío' });
     }
 
+    if (contienePalabraOfensiva(content)) {
+      return res.status(400).json({ message: 'Tu mensaje contiene lenguaje inapropiado. Por favor sé respetuoso.' });
+    }
+
     const match = await getMatch(yoId, otroId);
     if (!match) {
       return res.status(403).json({ message: 'No hay match entre estos usuarios' });
@@ -98,9 +111,59 @@ const enviarMensaje = async (req, res) => {
       content:     content.trim(),
     });
 
+    // Push si el receptor está offline (app cerrada).
+    if (!isOnline(otroId)) {
+      const remitente = await Usuario.findById(yoId)
+        .select('first_name username')
+        .lean();
+      const senderName = remitente?.first_name || remitente?.username || 'Nuevo mensaje';
+      const preview = content.trim();
+      enviarPushAUsuario(
+        String(otroId),
+        {
+          title: senderName,
+          body: preview.length > 120 ? `${preview.slice(0, 117)}…` : preview,
+          channelId: 'messages',
+          priority: 'high',
+          data: { type: 'message', fromId: String(yoId), senderName },
+        },
+        'notif_messages',
+      );
+    }
+
     res.status(201).json({ mensaje: mensaje.toJSON() });
   } catch (err) {
     console.error('enviarMensaje:', err);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+// ── DELETE /api/chat/:userId ─────────────────────────────────────────
+// Soft-delete por usuario: oculta el historial previo SOLO para quien lo
+// solicita. El otro usuario conserva sus mensajes. Los mensajes que lleguen
+// después reaparecen y la conversación vuelve a mostrarse en la lista.
+const eliminarConversacion = async (req, res) => {
+  try {
+    const yoId   = req.usuario._id;
+    const otroId = new mongoose.Types.ObjectId(req.params.userId);
+
+    const match = await getMatch(yoId, otroId);
+    if (!match) {
+      return res.status(403).json({ message: 'No hay match entre estos usuarios' });
+    }
+
+    const ahora   = new Date();
+    const entrada = match.eliminadaPor.find(e => e.usuario && e.usuario.equals(yoId));
+    if (entrada) {
+      entrada.fecha = ahora;
+    } else {
+      match.eliminadaPor.push({ usuario: yoId, fecha: ahora });
+    }
+    await match.save();
+
+    res.json({ message: 'Conversación eliminada' });
+  } catch (err) {
+    console.error('eliminarConversacion:', err);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
@@ -120,4 +183,4 @@ const subirImagen = async (req, res) => {
   }
 };
 
-module.exports = { obtenerMensajes, enviarMensaje, subirImagen };
+module.exports = { obtenerMensajes, enviarMensaje, subirImagen, eliminarConversacion };

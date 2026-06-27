@@ -56,8 +56,14 @@ const cambiarPassword = async (req, res) => {
     if (!password_actual || !password_nueva) {
       return res.status(400).json({ message: 'Ambas contraseñas son requeridas' });
     }
-    if (password_nueva.length < 6) {
-      return res.status(400).json({ message: 'La nueva contraseña debe tener mínimo 6 caracteres' });
+    if (password_nueva.length < 8) {
+      return res.status(400).json({ message: 'La nueva contraseña debe tener mínimo 8 caracteres' });
+    }
+    if (!/[A-Z]/.test(password_nueva) || !/[a-z]/.test(password_nueva) ||
+        !/\d/.test(password_nueva)   || !/[^A-Za-z0-9]/.test(password_nueva)) {
+      return res.status(400).json({
+        message: 'La nueva contraseña debe incluir mayúscula, minúscula, número y un carácter especial',
+      });
     }
 
     const usuario = await Usuario.findById(req.usuario._id).select('+password');

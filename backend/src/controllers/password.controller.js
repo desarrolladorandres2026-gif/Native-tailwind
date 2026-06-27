@@ -103,8 +103,14 @@ const resetPassword = async (req, res) => {
       return res.status(400).json({ message: 'Todos los campos son requeridos' });
     }
 
-    if (nuevaPassword.length < 6) {
-      return res.status(400).json({ message: 'La contraseña debe tener mínimo 6 caracteres' });
+    if (nuevaPassword.length < 8) {
+      return res.status(400).json({ message: 'La contraseña debe tener mínimo 8 caracteres' });
+    }
+    if (!/[A-Z]/.test(nuevaPassword) || !/[a-z]/.test(nuevaPassword) ||
+        !/\d/.test(nuevaPassword)   || !/[^A-Za-z0-9]/.test(nuevaPassword)) {
+      return res.status(400).json({
+        message: 'La contraseña debe incluir mayúscula, minúscula, número y un carácter especial',
+      });
     }
 
     const correoNorm = correo.trim().toLowerCase();

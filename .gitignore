@@ -32,3 +32,7 @@ Thumbs.db
 # Archivos de túnel (URLs temporales)
 pinggy_url.txt
 tunnel_url.txt
+
+# APKs (demasiado grandes para GitHub, >100 MB)
+*.apk
+apk-server/apks/

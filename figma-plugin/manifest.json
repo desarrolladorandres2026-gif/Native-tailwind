@@ -1,7 +1,0 @@
-{
-  "name": "Debuta App Prototype",
-  "id": "debuta-prototype-generator",
-  "api": "1.0.0",
-  "main": "code.js",
-  "editorType": ["figma"]
-}

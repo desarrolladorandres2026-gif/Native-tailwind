@@ -76,7 +76,7 @@ const usuarioSchema = new mongoose.Schema(
     password: {
       type: String,
       required: false,           // Opcional para usuarios con auth social
-      minlength: [6, 'Mínimo 6 caracteres'],
+      minlength: [8, 'Mínimo 8 caracteres'],
       select: false,
     },
 
@@ -174,6 +174,11 @@ const usuarioSchema = new mongoose.Schema(
     // ── Sistema ──────────────────────────────────────────────
     rol: { type: String, enum: ['user', 'admin', 'asociado'], default: 'user' },
     activo: { type: Boolean, default: true },
+
+    // ── Notificaciones push (Expo) ───────────────────────────
+    // Lista de Expo push tokens del usuario (uno por dispositivo).
+    // Se usan para enviar notificaciones cuando la app está cerrada.
+    pushTokens: { type: [String], default: [] },
 
     // ── Superlike ────────────────────────────────────────────
     lastSuperlikeUsed: { type: Date, default: null },

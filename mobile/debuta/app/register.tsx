@@ -4,7 +4,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator, KeyboardAvoidingView,
   Platform, Animated, Dimensions, Image, Keyboard,
-  StatusBar,
+  StatusBar, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -44,6 +44,18 @@ const GENRES = [
   { id: 'femenino', label: 'Mujer', icon: 'female' },
   { id: 'otro', label: 'Otro', icon: 'ellipsis-horizontal' },
 ];
+
+// ── Política de contraseña segura ──────────────────────────────────────────────
+// Cada regla se valida en tiempo real y se muestra al usuario en el paso de Seguridad.
+const PASSWORD_RULES: { id: string; label: string; test: (p: string) => boolean }[] = [
+  { id: 'length',  label: 'Al menos 8 caracteres',            test: p => p.length >= 8 },
+  { id: 'upper',   label: 'Una letra mayúscula (A-Z)',         test: p => /[A-Z]/.test(p) },
+  { id: 'lower',   label: 'Una letra minúscula (a-z)',         test: p => /[a-z]/.test(p) },
+  { id: 'number',  label: 'Un número (0-9)',                   test: p => /\d/.test(p) },
+  { id: 'special', label: 'Un carácter especial (!@#$%…)',     test: p => /[^A-Za-z0-9]/.test(p) },
+];
+
+const isPasswordStrong = (p: string) => PASSWORD_RULES.every(r => r.test(p));
 
 export default function RegisterScreen() {
   const { colors, isDark } = useTheme();
@@ -180,7 +192,7 @@ export default function RegisterScreen() {
       case 4: return ciudad.trim().length >= 3 && biografia.trim().length >= 10;
       case 5: return intereses.length >= 3 && buscando !== '';
       case 6: return foto !== null;
-      case 7: return password.length >= 6 && password === confirmar && telefono.length === 10 && acceptedTerms;
+      case 7: return isPasswordStrong(password) && password === confirmar && telefono.length === 10 && acceptedTerms;
       default: return true;
     }
   };
@@ -518,15 +530,42 @@ export default function RegisterScreen() {
                 </Text>
                 <Ionicons name="chevron-down" size={18} color={colors.textLight} />
               </TouchableOpacity>
-              {showDatePicker && (
+              {showDatePicker && Platform.OS === 'android' && (
                 <DateTimePicker
                   value={fechaNacimiento || new Date(2000, 0, 1)}
                   mode="date" display="spinner" maximumDate={new Date()}
-                  onChange={(_, date) => {
+                  onChange={(event, date) => {
+                    // En Android el spinner vive dentro de un diálogo con OK/Cancelar.
+                    // Solo cerramos y guardamos cuando el usuario confirma (type === 'set').
                     setShowDatePicker(false);
-                    if (date) setFechaNacimiento(date);
+                    if (event.type === 'set' && date) setFechaNacimiento(date);
                   }}
                 />
+              )}
+
+              {showDatePicker && Platform.OS === 'ios' && (
+                <Modal transparent animationType="fade" visible={showDatePicker}>
+                  <TouchableOpacity
+                    style={s.datePickerOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowDatePicker(false)}
+                  >
+                    <TouchableOpacity activeOpacity={1} style={[s.datePickerSheet, { backgroundColor: colors.card }]}>
+                      <View style={[s.datePickerHeader, { borderBottomColor: colors.glassBorder }]}>
+                        <TouchableOpacity onPress={() => setShowDatePicker(false)} activeOpacity={0.7}>
+                          <Text style={[s.datePickerDone, { color: colors.primary }]}>Listo</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <DateTimePicker
+                        value={fechaNacimiento || new Date(2000, 0, 1)}
+                        mode="date" display="spinner" maximumDate={new Date()}
+                        themeVariant={isDark ? 'dark' : 'light'}
+                        // En iOS el spinner es inline: actualizamos en vivo y cerramos con "Listo".
+                        onChange={(_, date) => { if (date) setFechaNacimiento(date); }}
+                      />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                </Modal>
               )}
             </View>
 
@@ -683,10 +722,10 @@ export default function RegisterScreen() {
 
             <View style={s.inputGroup}>
               <Text style={[s.label, { color: colors.textDim }]}>Contraseña</Text>
-              <View style={[s.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.glassBorder }, isValidationActive && password.length < 6 && { borderColor: colors.error, backgroundColor: `${colors.error}10` }]}>
+              <View style={[s.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.glassBorder }, isValidationActive && !isPasswordStrong(password) && { borderColor: colors.error, backgroundColor: `${colors.error}10` }]}>
                 <Ionicons name="lock-closed-outline" size={20} color={colors.textLight} />
-                <TextInput 
-                  style={[s.input, { color: colors.text }]} placeholder="Mínimo 6 caracteres"
+                <TextInput
+                  style={[s.input, { color: colors.text }]} placeholder="Crea una contraseña segura"
                   secureTextEntry={!showPassword} value={password} onChangeText={setPassword}
                   placeholderTextColor={colors.textLight}
                 />
@@ -694,6 +733,27 @@ export default function RegisterScreen() {
                   <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textLight} />
                 </TouchableOpacity>
               </View>
+
+              {/* Requisitos de contraseña en tiempo real */}
+              {(password.length > 0 || isValidationActive) && (
+                <View style={[s.pwReqList, { backgroundColor: colors.inputBg, borderColor: colors.glassBorder }]}>
+                  {PASSWORD_RULES.map(rule => {
+                    const ok = rule.test(password);
+                    return (
+                      <View key={rule.id} style={s.pwReqRow}>
+                        <Ionicons
+                          name={ok ? 'checkmark-circle' : 'ellipse-outline'}
+                          size={16}
+                          color={ok ? colors.success : colors.textLight}
+                        />
+                        <Text style={[s.pwReqText, { color: ok ? colors.success : colors.textLight }]}>
+                          {rule.label}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
             </View>
 
             <View style={s.inputGroup}>
@@ -969,6 +1029,17 @@ const s = StyleSheet.create({
   },
   selfieHint: { fontSize: 13, fontWeight: '500', marginTop: 6 },
 
+  pwReqList: {
+    marginTop: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 8,
+  },
+  pwReqRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  pwReqText: { fontSize: 13, fontWeight: '500', flex: 1 },
+
   termsWrapper: { flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingRight: 20 },
   checkbox: { 
     width: 22, height: 22, borderRadius: 6, 
@@ -1039,5 +1110,28 @@ const s = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     textAlign: 'center',
+  },
+
+  // Date Picker (iOS modal)
+  datePickerOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  datePickerSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 20,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  datePickerDone: {
+    fontSize: 17,
+    fontWeight: '700',
   },
 });

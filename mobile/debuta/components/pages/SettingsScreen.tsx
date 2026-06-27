@@ -20,6 +20,17 @@ import { useTheme } from '../../theme/ThemeContext';
 import * as ImagePicker from 'expo-image-picker';
 import { Wrench, User, CreditCard, AlertTriangle, Lightbulb, ClipboardList } from 'lucide-react-native';
 
+// ── Política de contraseña segura (igual que en el registro) ───────────────────
+const PASSWORD_RULES: { id: string; label: string; test: (p: string) => boolean }[] = [
+  { id: 'length',  label: 'Al menos 8 caracteres',        test: p => p.length >= 8 },
+  { id: 'upper',   label: 'Una letra mayúscula (A-Z)',     test: p => /[A-Z]/.test(p) },
+  { id: 'lower',   label: 'Una letra minúscula (a-z)',     test: p => /[a-z]/.test(p) },
+  { id: 'number',  label: 'Un número (0-9)',               test: p => /\d/.test(p) },
+  { id: 'special', label: 'Un carácter especial (!@#$%…)', test: p => /[^A-Za-z0-9]/.test(p) },
+];
+
+const isPasswordStrong = (p: string) => PASSWORD_RULES.every(r => r.test(p));
+
 // ─── SupportModal ─────────────────────────────────────────────────────────────
 const CATEGORIAS = [
   { key: 'problema_tecnico', label: 'Problema técnico', Icon: Wrench },
@@ -219,6 +230,9 @@ const sp = StyleSheet.create({
   },
   textarea:     { height: 130, paddingTop: 14 },
   charCount:    { fontSize: 11, textAlign: 'right', marginBottom: 16, marginTop: 4 },
+  pwReqList:    { borderRadius: 14, borderWidth: 1, paddingVertical: 10, paddingHorizontal: 12, gap: 7, marginBottom: 15 },
+  pwReqRow:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  pwReqText:    { fontSize: 12.5, fontWeight: '500', flex: 1 },
   errorBox:     { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
   errorText:    { color: '#d9534f', fontSize: 13, flex: 1 },
   sendBtn: {
@@ -822,7 +836,7 @@ function ChangePasswordModal({ visible, onClose }: any) {
   const handleSave = async () => {
     setErrorMsg('');
     if (!currentPassword || !newPassword || !confirmPassword) return setErrorMsg('Completa todos los campos.');
-    if (newPassword.length < 6) return setErrorMsg('La nueva contraseña debe tener al menos 6 caracteres.');
+    if (!isPasswordStrong(newPassword)) return setErrorMsg('Tu nueva contraseña no cumple todos los requisitos de seguridad.');
     if (newPassword !== confirmPassword) return setErrorMsg('Las contraseñas no coinciden.');
 
     setLoading(true);
@@ -864,6 +878,26 @@ function ChangePasswordModal({ visible, onClose }: any) {
               placeholderTextColor={colors.textDim}
               secureTextEntry
             />
+
+            {newPassword.length > 0 && (
+              <View style={[sp.pwReqList, { backgroundColor: `${colors.glassBorder}30`, borderColor: colors.glassBorder }]}>
+                {PASSWORD_RULES.map(rule => {
+                  const ok = rule.test(newPassword);
+                  return (
+                    <View key={rule.id} style={sp.pwReqRow}>
+                      <Ionicons
+                        name={ok ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={15}
+                        color={ok ? colors.success : colors.textDim}
+                      />
+                      <Text style={[sp.pwReqText, { color: ok ? colors.success : colors.textDim }]}>
+                        {rule.label}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
 
             <TextInput
               style={[sp.input, { color: colors.text, borderColor: colors.glassBorder, backgroundColor: `${colors.glassBorder}30`, marginBottom: 15 }]}

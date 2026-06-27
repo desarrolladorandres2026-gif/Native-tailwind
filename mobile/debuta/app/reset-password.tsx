@@ -17,6 +17,17 @@ import { useCustomAlert } from '../hooks/useCustomAlert';
 
 const { width: W } = Dimensions.get('window');
 
+// ── Política de contraseña segura (igual que en el registro) ───────────────────
+const PASSWORD_RULES: { id: string; label: string; test: (p: string) => boolean }[] = [
+  { id: 'length',  label: 'Al menos 8 caracteres',        test: p => p.length >= 8 },
+  { id: 'upper',   label: 'Una letra mayúscula (A-Z)',     test: p => /[A-Z]/.test(p) },
+  { id: 'lower',   label: 'Una letra minúscula (a-z)',     test: p => /[a-z]/.test(p) },
+  { id: 'number',  label: 'Un número (0-9)',               test: p => /\d/.test(p) },
+  { id: 'special', label: 'Un carácter especial (!@#$%…)', test: p => /[^A-Za-z0-9]/.test(p) },
+];
+
+const isPasswordStrong = (p: string) => PASSWORD_RULES.every(r => r.test(p));
+
 const C = {
   background:   '#FFFFFF',
   gradientMain: ['#FF5864', '#FF655B', '#FD297B'] as const,
@@ -61,8 +72,8 @@ export default function ResetPasswordScreen() {
   const handleReset = async () => {
     setError(null);
 
-    if (password.length < 6)
-      return setError('La contraseña debe tener al menos 6 caracteres');
+    if (!isPasswordStrong(password))
+      return setError('Tu contraseña no cumple todos los requisitos de seguridad');
     if (password !== confirmPassword)
       return setError('Las contraseñas no coinciden');
 
@@ -130,7 +141,7 @@ export default function ResetPasswordScreen() {
                   <Ionicons name="lock-closed-outline" size={19} color={C.secondary} />
                   <TextInput
                     style={s.input}
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Crea una contraseña segura"
                     placeholderTextColor={C.textLight}
                     value={password}
                     onChangeText={v => { setError(null); setPassword(v); }}
@@ -141,6 +152,27 @@ export default function ResetPasswordScreen() {
                     <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color={C.textLight} />
                   </TouchableOpacity>
                 </View>
+
+                {/* Requisitos de contraseña en tiempo real */}
+                {password.length > 0 && (
+                  <View style={s.pwReqList}>
+                    {PASSWORD_RULES.map(rule => {
+                      const ok = rule.test(password);
+                      return (
+                        <View key={rule.id} style={s.pwReqRow}>
+                          <Ionicons
+                            name={ok ? 'checkmark-circle' : 'ellipse-outline'}
+                            size={15}
+                            color={ok ? C.success : C.textLight}
+                          />
+                          <Text style={[s.pwReqText, { color: ok ? C.success : C.textLight }]}>
+                            {rule.label}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
 
               {/* Confirmar Contraseña */}
@@ -222,6 +254,18 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: C.inputBorder, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 13,
   },
   input: { flex: 1, color: C.text, fontSize: 15 },
+  pwReqList: {
+    marginTop: 10,
+    backgroundColor: C.inputBg,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: C.inputBorder,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 7,
+  },
+  pwReqRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  pwReqText: { fontSize: 12.5, fontWeight: '500', flex: 1 },
   btnPrimary: {
     borderRadius: 16, overflow: 'hidden', boxShadow: boxShadow(C.accent, 6, 12, 0.25),
   },
