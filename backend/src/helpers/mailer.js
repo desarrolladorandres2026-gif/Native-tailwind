@@ -27,32 +27,26 @@ if (process.env.RESEND_API_KEY) {
   }
 }
 
-// ── Transporter Nodemailer (SMTP o Gmail), creado de forma perezosa ───────────
-let transporter = null;
-function getTransporter() {
-  if (transporter) return transporter;
-  if (process.env.SMTP_HOST) {
+// ── Transporters Nodemailer (SMTP y Gmail), perezosos y cacheados por tipo ────
+const transporters = {};
+function getTransporter(type) {
+  if (transporters[type]) return transporters[type];
+  if (type === 'smtp') {
     const port = Number(process.env.SMTP_PORT) || 587;
-    transporter = nodemailer.createTransport({
+    transporters[type] = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port,
       secure: port === 465, // true solo para 465; 587 usa STARTTLS
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     });
   } else {
-    // Fallback legacy: Gmail. Funciona, pero suele caer en spam.
-    transporter = nodemailer.createTransport({
+    // Gmail: funciona para cualquier destinatario, pero tiende a ir a spam.
+    transporters[type] = nodemailer.createTransport({
       service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
     });
   }
-  return transporter;
+  return transporters[type];
 }
 
 // Remitente. Con Resend debe ser un dominio verificado ("Debuta" <noreply@debuta.online>)
@@ -70,30 +64,55 @@ const MAIL_REPLY_TO = process.env.MAIL_REPLY_TO || undefined;
  * @param {{ to: string, subject: string, html: string, text: string }} msg
  */
 const enviarCorreo = async ({ to, subject, html, text }) => {
+  const errores = [];
+
+  // 1) Resend (si hay API key)
   if (resendClient) {
-    const { data, error } = await resendClient.emails.send({
-      from: MAIL_FROM,
-      to,
-      subject,
-      html,
-      text,
-      ...(MAIL_REPLY_TO ? { replyTo: MAIL_REPLY_TO } : {}),
-    });
-    if (error) {
+    try {
+      const { data, error } = await resendClient.emails.send({
+        from: MAIL_FROM,
+        to,
+        subject,
+        html,
+        text,
+        ...(MAIL_REPLY_TO ? { replyTo: MAIL_REPLY_TO } : {}),
+      });
       // El SDK de Resend no lanza: devuelve { error }. Lo normalizamos a throw.
-      throw new Error(error.message || JSON.stringify(error));
+      if (error) throw new Error(error.message || JSON.stringify(error));
+      return data;
+    } catch (err) {
+      errores.push(`Resend: ${err.message}`);
+      console.error('mailer — Resend falló, probando siguiente proveedor:', err.message);
     }
-    return data;
   }
 
-  return getTransporter().sendMail({
-    from: MAIL_FROM,
-    replyTo: MAIL_REPLY_TO,
-    to,
-    subject,
-    text,
-    html,
-  });
+  // 2) SMTP transaccional (si está configurado)
+  if (process.env.SMTP_HOST) {
+    try {
+      return await getTransporter('smtp').sendMail({
+        from: MAIL_FROM, replyTo: MAIL_REPLY_TO, to, subject, text, html,
+      });
+    } catch (err) {
+      errores.push(`SMTP: ${err.message}`);
+      console.error('mailer — SMTP falló, probando siguiente proveedor:', err.message);
+    }
+  }
+
+  // 3) Gmail (fallback legacy). El "from" debe ser la propia cuenta de Gmail.
+  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    try {
+      return await getTransporter('gmail').sendMail({
+        from: `"Debuta" <${process.env.EMAIL_USER}>`, replyTo: MAIL_REPLY_TO, to, subject, text, html,
+      });
+    } catch (err) {
+      errores.push(`Gmail: ${err.message}`);
+      console.error('mailer — Gmail falló:', err.message);
+    }
+  }
+
+  throw new Error(
+    `No se pudo enviar el correo con ningún proveedor configurado. ${errores.join(' | ') || 'No hay proveedores de correo configurados (RESEND_API_KEY, SMTP_HOST o EMAIL_USER/EMAIL_PASS).'}`
+  );
 };
 
 /**

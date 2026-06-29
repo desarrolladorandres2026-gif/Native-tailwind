@@ -7,7 +7,7 @@ import {
   StatusBar, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -339,6 +339,22 @@ export default function RegisterScreen() {
     }
   };
 
+  // Android: el picker es un diálogo modal nativo (no inline como iOS).
+  // Usamos el API imperativo —recomendado por la propia librería— porque el
+  // componente declarativo en modo spinner reseteaba la fecha al año por
+  // defecto. La fecha solo se guarda al pulsar OK (event.type === 'set').
+  const openAndroidDatePicker = () => {
+    DateTimePickerAndroid.open({
+      value: fechaNacimiento || new Date(2000, 0, 1),
+      mode: 'date',
+      display: 'spinner',
+      maximumDate: new Date(),
+      onChange: (event, date) => {
+        if (event.type === 'set' && date) setFechaNacimiento(date);
+      },
+    });
+  };
+
   const handleFinalRegister = async () => {
     if (!validateStep()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -355,6 +371,12 @@ export default function RegisterScreen() {
       finalLastName = parts.slice(1).join(' ');
     }
 
+    // Construimos YYYY-MM-DD con los componentes LOCALES de la fecha para evitar
+    // que toISOString() (UTC) corra el día —y en el caso límite el año— en zonas
+    // horarias positivas (p. ej. España UTC+1/+2).
+    const fn = fechaNacimiento!;
+    const fechaNacimientoStr = `${fn.getFullYear()}-${String(fn.getMonth() + 1).padStart(2, '0')}-${String(fn.getDate()).padStart(2, '0')}`;
+
     await register(
       {
         nombre: finalFirstName,
@@ -363,7 +385,7 @@ export default function RegisterScreen() {
         telefono: telefono.replace(/\D/g, ''),
         password,
         genero,
-        fechaNacimiento: fechaNacimiento!.toISOString().split('T')[0],
+        fechaNacimiento: fechaNacimientoStr,
         ciudad: ciudad.trim(),
         bio: biografia.trim(),
         intereses,
@@ -522,7 +544,7 @@ export default function RegisterScreen() {
               <Text style={[s.label, { color: colors.textDim }]}>Fecha de nacimiento</Text>
               <TouchableOpacity 
                 style={[s.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.glassBorder }, isValidationActive && !fechaNacimiento && { borderColor: colors.error, backgroundColor: `${colors.error}10` }]} 
-                onPress={() => setShowDatePicker(true)}
+                onPress={() => { if (Platform.OS === 'android') openAndroidDatePicker(); else setShowDatePicker(true); }}
               >
                 <Ionicons name="calendar-outline" size={20} color={colors.textLight} />
                 <Text style={[s.input, { color: fechaNacimiento ? colors.text : colors.textLight, marginTop: 4 }]}>
@@ -530,19 +552,6 @@ export default function RegisterScreen() {
                 </Text>
                 <Ionicons name="chevron-down" size={18} color={colors.textLight} />
               </TouchableOpacity>
-              {showDatePicker && Platform.OS === 'android' && (
-                <DateTimePicker
-                  value={fechaNacimiento || new Date(2000, 0, 1)}
-                  mode="date" display="spinner" maximumDate={new Date()}
-                  onChange={(event, date) => {
-                    // En Android el spinner vive dentro de un diálogo con OK/Cancelar.
-                    // Solo cerramos y guardamos cuando el usuario confirma (type === 'set').
-                    setShowDatePicker(false);
-                    if (event.type === 'set' && date) setFechaNacimiento(date);
-                  }}
-                />
-              )}
-
               {showDatePicker && Platform.OS === 'ios' && (
                 <Modal transparent animationType="fade" visible={showDatePicker}>
                   <TouchableOpacity

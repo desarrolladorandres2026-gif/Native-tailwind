@@ -1,4 +1,3 @@
 node_modules/
+# Los APK NO se versionan (>100 MB, GitHub los rechaza). Se suben al VPS por SCP.
 apks/*.apk
-# La APK oficial sí se versiona para que el deploy la sirva en /download
-!apks/app-release.apk

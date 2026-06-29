@@ -272,7 +272,9 @@ app.get('/download/:filename?', (req, res) => {
   const filePath = path.join(apksDir, filename);
   if (!fs.existsSync(filePath)) return res.status(404).send('Archivo no encontrado.');
 
-  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  // El archivo físico puede llamarse app-release.apk, pero al usuario siempre
+  // se le entrega como "Debuta.apk" (branding y claridad al instalar).
+  res.setHeader('Content-Disposition', 'attachment; filename="Debuta.apk"');
   res.setHeader('Content-Type', 'application/vnd.android.package-archive');
   res.sendFile(filePath);
 });

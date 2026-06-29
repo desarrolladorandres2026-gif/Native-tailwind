@@ -44,7 +44,12 @@ const enviarCodigoVerif = async (req, res) => {
     try {
       await enviarCodigoVerificacionRegistro(correoNorm, nombre?.trim() || 'Usuario', code);
     } catch (mailErr) {
-      console.error('enviarCodigoVerif — fallo al enviar email:', mailErr.message);
+      // No fingir éxito: si el correo no salió, el usuario nunca recibirá el código.
+      console.error('enviarCodigoVerif — fallo al enviar email:', mailErr);
+      verificationCodes.delete(correoNorm);
+      return res.status(502).json({
+        message: 'No pudimos enviar el correo de verificación. Revisa que el correo sea correcto e inténtalo de nuevo en unos minutos.',
+      });
     }
 
     res.json({ message: 'Código enviado correctamente' });
