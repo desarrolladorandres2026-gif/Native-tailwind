@@ -215,6 +215,18 @@ app.get('/googlece10d5045ba4130d.html', (_, res) =>
   res.sendFile(path.join(publicDir, 'googlece10d5045ba4130d.html'))
 );
 
+// ── Favicon / icono del sitio (necesario para que Google muestre el logo) ─────
+app.get(['/favicon.ico', '/favicon.png'], (_, res) => {
+  res.type('image/png');
+  res.set('Cache-Control', 'public, max-age=604800');
+  res.sendFile(path.join(publicDir, 'favicon.png'));
+});
+app.get(['/apple-touch-icon.png', '/apple-touch-icon-precomposed.png'], (_, res) => {
+  res.type('image/png');
+  res.set('Cache-Control', 'public, max-age=604800');
+  res.sendFile(path.join(publicDir, 'apple-touch-icon.png'));
+});
+
 function getLocalIP() {
   const interfaces = os.networkInterfaces();
   const candidates = [];
@@ -310,6 +322,23 @@ app.get('/', async (req, res) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta name="theme-color" content="#FD297B"/>
   <title>Debuta - Tu próxima historia empieza aquí</title>
+  <meta name="description" content="Explora perfiles. Desliza y descubre personas cerca de ti con fotos e historias reales. Haz Match: cuando hay interés mutuo, la app te notifica al instante."/>
+  <link rel="canonical" href="https://www.debuta.online/"/>
+  <!-- Favicon / icono del sitio -->
+  <link rel="icon" type="image/png" href="/favicon.png"/>
+  <link rel="shortcut icon" href="/favicon.ico"/>
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
+  <!-- Open Graph / redes sociales -->
+  <meta property="og:type" content="website"/>
+  <meta property="og:site_name" content="Debuta"/>
+  <meta property="og:title" content="Debuta - Tu próxima historia empieza aquí"/>
+  <meta property="og:description" content="Desliza y descubre personas cerca de ti con fotos e historias reales. Cuando hay interés mutuo, la app te notifica al instante."/>
+  <meta property="og:url" content="https://www.debuta.online/"/>
+  <meta property="og:image" content="https://www.debuta.online/apple-touch-icon.png"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:title" content="Debuta - Tu próxima historia empieza aquí"/>
+  <meta name="twitter:description" content="Desliza y descubre personas cerca de ti con fotos e historias reales."/>
+  <meta name="twitter:image" content="https://www.debuta.online/apple-touch-icon.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
