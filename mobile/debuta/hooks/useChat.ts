@@ -84,8 +84,27 @@ export function useChat(matchedUserId: string) {
       msgIds.current = new Set(msgs.map(m => m.id));
       setMessages(msgs);
       if (data.matchId) setMatchId(String(data.matchId));
-      // Restaurar sugerencia de cita activa si existe (persiste entre sesiones)
-      if (data.recomendacion) setDateSuggestion(data.recomendacion);
+      // Restaurar sugerencia de cita activa si existe (persiste entre sesiones).
+      // Solo reemplazar el estado si cambió algo relevante: con el polling de
+      // respaldo (cada 5s) un objeto nuevo idéntico re-dispara efectos en la UI
+      // (p. ej. auto-scroll) y rompe el desplazamiento del chat.
+      if (data.recomendacion) {
+        const next = data.recomendacion;
+        setDateSuggestion(prev => {
+          if (
+            prev &&
+            prev.matchId === next.matchId &&
+            prev.recomendacion?.restauranteId === next.recomendacion?.restauranteId &&
+            prev.recomendacion?.estado === next.recomendacion?.estado &&
+            prev.recomendacion?.user1Acepta === next.recomendacion?.user1Acepta &&
+            prev.recomendacion?.user2Acepta === next.recomendacion?.user2Acepta &&
+            prev.recomendacion?.fechaSugerida === next.recomendacion?.fechaSugerida
+          ) {
+            return prev; // sin cambios — conservar identidad para no re-renderizar
+          }
+          return next;
+        });
+      }
     } catch (e) {
       console.error('Error fetching messages:', e);
     } finally {
@@ -135,7 +154,15 @@ export function useChat(matchedUserId: string) {
     const onStatusUpdated = (data: any) => {
       setDateSuggestion(prev => {
         if (!prev || prev.matchId !== data.matchId) return prev;
-        return { ...prev, recomendacion: data.recomendacion };
+        return {
+          ...prev,
+          recomendacion: data.recomendacion,
+          // Si el otro usuario editó la fecha, reflejarla en la tarjeta
+          sugerencia: {
+            ...prev.sugerencia,
+            fecha: data.recomendacion?.fechaSugerida ?? prev.sugerencia?.fecha,
+          },
+        };
       });
     };
 
@@ -213,6 +240,28 @@ export function useChat(matchedUserId: string) {
     }
   }, []);
 
+  // ── Editar fecha/hora de la cita ───────────────────────────────────────────
+  const editDate = useCallback(async (matchId: string, fechaSugerida: string): Promise<boolean> => {
+    setDateLoading(true);
+    try {
+      const res = await api.post<{ recomendacion: any }>(`/matches/${matchId}/edit-date`, { fechaSugerida });
+      setDateSuggestion(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          recomendacion: res.recomendacion,
+          sugerencia: { ...prev.sugerencia, fecha: res.recomendacion?.fechaSugerida ?? fechaSugerida },
+        };
+      });
+      return true;
+    } catch (e: any) {
+      console.error('Error editing date:', e);
+      return false;
+    } finally {
+      setDateLoading(false);
+    }
+  }, []);
+
   // ── Sugerir otro lugar ─────────────────────────────────────────────────────
   const requestNewPlace = useCallback(async (matchId: string) => {
     setDateLoading(true);
@@ -237,7 +286,7 @@ export function useChat(matchedUserId: string) {
 
   return {
     messages, loading, sending, sendMessage, myId, matchId,
-    dateSuggestion, dateLoading, acceptDate, rejectDate, requestNewPlace,
+    dateSuggestion, dateLoading, acceptDate, rejectDate, requestNewPlace, editDate,
     mensajeRechazado, clearMensajeRechazado, deleteConversation,
   };
 }

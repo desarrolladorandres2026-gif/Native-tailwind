@@ -6,6 +6,7 @@
 const mongoose = require('mongoose');
 const Post    = require('../models/post.model');
 const { uploadPostImage, deleteImage } = require('../helpers/cloudinary');
+const { contienePalabraOfensiva } = require('../helpers/moderador');
 
 // ── POST /api/posts ───────────────────────────────────────────────────────────
 const crearPost = async (req, res) => {
@@ -13,6 +14,10 @@ const crearPost = async (req, res) => {
     const { text } = req.body;
     if (!text && !req.file) {
       return res.status(400).json({ message: 'El post debe tener texto o imagen' });
+    }
+
+    if (text && contienePalabraOfensiva(text)) {
+      return res.status(400).json({ message: 'Tu publicación contiene lenguaje inapropiado. Por favor sé respetuoso.' });
     }
 
     let image = undefined;

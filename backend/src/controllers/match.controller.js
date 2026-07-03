@@ -4,6 +4,7 @@ const Mensaje  = require('../models/mensaje.model');
 const Usuario  = require('../models/usuario.model');
 const Restaurante = require('../models/restaurante.model');
 const { getIO } = require('../socket');
+const { contienePalabraOfensiva } = require('../helpers/moderador');
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 const getDiaSugerido = () => {
@@ -209,6 +210,69 @@ const rechazarCita = async (req, res) => {
     res.json({ message: 'Cita rechazada', recomendacion: match.recomendacion });
   } catch (err) {
     console.error('rechazarCita:', err);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+// ── POST /api/matches/:id/edit-date ────────────────────────────────
+// Cualquiera de los dos puede proponer otra fecha/hora. Quien edita queda
+// aceptando implícitamente su propuesta; la aceptación del otro se reinicia
+// porque las condiciones de la cita cambiaron.
+const editarFechaCita = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const yoId = req.usuario._id;
+    const fechaSugerida = String(req.body?.fechaSugerida ?? '').trim();
+
+    if (!fechaSugerida) {
+      return res.status(400).json({ message: 'La fecha no puede estar vacía' });
+    }
+    if (fechaSugerida.length > 60) {
+      return res.status(400).json({ message: 'La fecha es demasiado larga' });
+    }
+    if (contienePalabraOfensiva(fechaSugerida)) {
+      return res.status(400).json({ message: 'La fecha contiene lenguaje inapropiado. Por favor sé respetuoso.' });
+    }
+
+    const match = await Match.findById(id);
+    if (!match) return res.status(404).json({ message: 'Match no encontrado' });
+
+    if (!match.usuarios.some(u => u.equals(yoId))) {
+      return res.status(403).json({ message: 'No eres parte de este match' });
+    }
+    if (!match.recomendacion?.restauranteId) {
+      return res.status(400).json({ message: 'No hay recomendación de cita activa' });
+    }
+    if (match.recomendacion.estado === 'aceptada') {
+      return res.status(400).json({ message: 'La cita ya fue confirmada por ambos. Pide otro lugar si quieren cambiarla.' });
+    }
+
+    const soyUser1 = match.usuarios[0].equals(yoId);
+    match.recomendacion.fechaSugerida = fechaSugerida;
+    match.recomendacion.user1Acepta = soyUser1;
+    match.recomendacion.user2Acepta = !soyUser1;
+    match.recomendacion.estado = 'pendiente';
+    await match.save();
+
+    // Notificar a ambos usuarios en tiempo real
+    try {
+      const io = getIO();
+      const yo = await Usuario.findById(yoId).select('first_name').lean();
+      const payload = {
+        matchId: String(match._id),
+        editadoPor: yo?.first_name || 'Tu match',
+        recomendacion: match.recomendacion,
+      };
+      for (const uid of match.usuarios) {
+        io.to(`user:${String(uid)}`).emit('cita:estado-actualizado', payload);
+      }
+    } catch (socketErr) {
+      console.warn('Socket editarFechaCita skip:', socketErr.message);
+    }
+
+    res.json({ message: 'Fecha actualizada', recomendacion: match.recomendacion });
+  } catch (err) {
+    console.error('editarFechaCita:', err);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
@@ -482,4 +546,4 @@ const listarMatches = async (req, res) => {
   }
 };
 
-module.exports = { darLike, darSuperLike, darDislike, listarMatches, aceptarCita, rechazarCita, sugerirNuevoLugar };
+module.exports = { darLike, darSuperLike, darDislike, listarMatches, aceptarCita, rechazarCita, sugerirNuevoLugar, editarFechaCita };

@@ -27,14 +27,19 @@ import { Sparkles, UtensilsCrossed, Flame } from 'lucide-react-native';
 
 const EMOJIS = ['😀','😂','🥰','😎','😭','👍','❤️','🔥','✨','💯','🎉','💬'];
 
+// Opciones para editar la fecha/hora de la cita
+const DIAS_CITA  = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+const HORAS_CITA = ['12:00 PM','1:00 PM','3:00 PM','5:00 PM','6:00 PM','7:00 PM','7:30 PM','8:00 PM','8:30 PM','9:00 PM','9:30 PM','10:00 PM'];
+
 // ── Tarjeta de Sugerencia de Primera Cita ──────────────────────────────────────
 function DateSuggestionCard({
-  suggestion, myId, onAccept, onNewPlace, dateLoading, colors, isDark,
+  suggestion, myId, onAccept, onNewPlace, onEditDate, dateLoading, colors, isDark,
 }: {
   suggestion: DateSuggestion;
   myId: string | null;
   onAccept: () => void;
   onNewPlace: () => void;
+  onEditDate: (fecha: string) => Promise<boolean>;
   dateLoading: boolean;
   colors: any;
   isDark: boolean;
@@ -42,6 +47,10 @@ function DateSuggestionCard({
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(40)).current;
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [showEditDate, setShowEditDate] = useState(false);
+  const [editDia,  setEditDia]  = useState('Sábado');
+  const [editHora, setEditHora] = useState('8:00 PM');
+  const [savingDate, setSavingDate] = useState(false);
 
   useEffect(() => {
     Animated.parallel([
@@ -66,6 +75,30 @@ function DateSuggestionCard({
     : myPosition === 1
       ? recomendacion.user2Acepta
       : recomendacion.user1Acepta || recomendacion.user2Acepta;
+
+  // Abrir el editor precargando el día/hora actuales de la sugerencia
+  const openEditDate = () => {
+    const fechaActual = sugerencia.fecha || 'Sábado 8:00 PM';
+    const [dia, ...resto] = fechaActual.split(' ');
+    if (DIAS_CITA.includes(dia)) setEditDia(dia);
+    const hora = resto.join(' ');
+    if (HORAS_CITA.includes(hora)) setEditHora(hora);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowEditDate(true);
+  };
+
+  const saveEditDate = async () => {
+    if (savingDate) return;
+    setSavingDate(true);
+    const ok = await onEditDate(`${editDia} ${editHora}`);
+    setSavingDate(false);
+    if (ok) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowEditDate(false);
+    } else {
+      Alert.alert('Error', 'No se pudo actualizar la fecha. Intenta de nuevo.');
+    }
+  };
 
   return (
     <Animated.View style={[
@@ -176,15 +209,25 @@ function DateSuggestionCard({
             </View>
           ) : null}
 
-          {/* ── Fecha sugerida ────────────────────────────────────── */}
+          {/* ── Fecha sugerida (editable mientras no esté confirmada) ── */}
           <View style={[s.dateSuggestionBox, {
             backgroundColor: isDark ? 'rgba(139,92,246,0.12)' : 'rgba(139,92,246,0.06)',
             borderColor: isDark ? 'rgba(139,92,246,0.3)' : 'rgba(139,92,246,0.15)',
           }]}>
             <Ionicons name="calendar" size={18} color={colors.secondary} />
-            <Text style={[s.dateSuggestionText, { color: colors.text }]}>
+            <Text style={[s.dateSuggestionText, { color: colors.text, flex: 1 }]}>
               {sugerencia.fecha || 'Sábado 8:00 PM'}
             </Text>
+            {!isAccepted && (
+              <TouchableOpacity
+                onPress={openEditDate}
+                disabled={dateLoading}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={[s.dateEditBtn, { backgroundColor: isDark ? 'rgba(139,92,246,0.2)' : 'rgba(139,92,246,0.12)' }]}
+              >
+                <Ionicons name="pencil" size={15} color={colors.secondary} />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* ── Menú preview ──────────────────────────────────────── */}
@@ -269,9 +312,142 @@ function DateSuggestionCard({
           </>
         )}
       </LinearGradient>
+
+      {/* ── Modal para editar día y hora de la cita ─────────────────── */}
+      <Modal
+        visible={showEditDate}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEditDate(false)}
+        statusBarTranslucent
+      >
+        <Pressable style={ed.backdrop} onPress={() => setShowEditDate(false)}>
+          <Pressable onPress={() => {}}>
+            <View style={[ed.sheet, { backgroundColor: isDark ? '#1A1626' : '#FFFFFF' }]}>
+              <View style={ed.headerRow}>
+                <Ionicons name="calendar" size={18} color={colors.secondary} />
+                <Text style={[ed.title, { color: colors.text }]}>Editar cita</Text>
+              </View>
+              <Text style={[ed.subtitle, { color: colors.textDim }]}>
+                Propón el día y la hora que mejor les quede. Tu match deberá aceptar el cambio.
+              </Text>
+
+              <Text style={[ed.label, { color: colors.textDim }]}>DÍA</Text>
+              <View style={ed.chipsWrap}>
+                {DIAS_CITA.map(d => (
+                  <TouchableOpacity
+                    key={d}
+                    style={[
+                      ed.chip,
+                      { borderColor: colors.glassBorder, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' },
+                      editDia === d && { borderColor: colors.secondary, backgroundColor: `${colors.secondary}20` },
+                    ]}
+                    onPress={() => { setEditDia(d); Haptics.selectionAsync(); }}
+                  >
+                    <Text style={[
+                      ed.chipText,
+                      { color: colors.textDim },
+                      editDia === d && { color: colors.secondary, fontWeight: '800' },
+                    ]}>{d}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[ed.label, { color: colors.textDim }]}>HORA</Text>
+              <View style={ed.chipsWrap}>
+                {HORAS_CITA.map(h => (
+                  <TouchableOpacity
+                    key={h}
+                    style={[
+                      ed.chip,
+                      { borderColor: colors.glassBorder, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' },
+                      editHora === h && { borderColor: colors.primary, backgroundColor: `${colors.primary}18` },
+                    ]}
+                    onPress={() => { setEditHora(h); Haptics.selectionAsync(); }}
+                  >
+                    <Text style={[
+                      ed.chipText,
+                      { color: colors.textDim },
+                      editHora === h && { color: colors.primary, fontWeight: '800' },
+                    ]}>{h}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={[ed.previewBox, { backgroundColor: isDark ? 'rgba(139,92,246,0.12)' : 'rgba(139,92,246,0.07)' }]}>
+                <Ionicons name="time" size={15} color={colors.secondary} />
+                <Text style={[ed.previewText, { color: colors.text }]}>{editDia} {editHora}</Text>
+              </View>
+
+              <View style={ed.btnRow}>
+                <TouchableOpacity
+                  style={[ed.cancelBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : '#F2F2F7' }]}
+                  onPress={() => setShowEditDate(false)}
+                  disabled={savingDate}
+                >
+                  <Text style={[ed.cancelText, { color: colors.textDim }]}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={ed.saveBtn} onPress={saveEditDate} disabled={savingDate} activeOpacity={0.85}>
+                  <LinearGradient
+                    colors={[colors.primary, colors.secondary]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={ed.saveGradient}
+                  >
+                    {savingDate
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Text style={ed.saveText}>Guardar</Text>}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Animated.View>
   );
 }
+
+// ── Estilos del editor de cita ─────────────────────────────────────────────────
+const ed = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  sheet: {
+    width: '100%',
+    borderRadius: 22,
+    padding: 20,
+  },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  title: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
+  subtitle: { fontSize: 13, fontWeight: '500', marginBottom: 16, lineHeight: 18 },
+  label: { fontSize: 11, fontWeight: '800', letterSpacing: 0.8, marginBottom: 8 },
+  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  chipText: { fontSize: 13, fontWeight: '600' },
+  previewBox: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 10, borderRadius: 12, marginBottom: 16,
+  },
+  previewText: { fontSize: 15, fontWeight: '800' },
+  btnRow: { flexDirection: 'row', gap: 10 },
+  cancelBtn: {
+    flex: 1, borderRadius: 14, paddingVertical: 14, alignItems: 'center',
+  },
+  cancelText: { fontSize: 15, fontWeight: '700' },
+  saveBtn: { flex: 1, borderRadius: 14, overflow: 'hidden' },
+  saveGradient: { paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
+  saveText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+});
 
 // ── Burbuja de mensaje ────────────────────────────────────────────────────────
 function MessageBubble({ msg, isMe, colors, isDark }: { msg: any; isMe: boolean; colors: any; isDark: boolean }) {
@@ -381,7 +557,7 @@ export default function ChatScreen() {
   const { userId, name, photo, icebreaker, streak: streakParam } = params;
   const {
     messages, loading, sending, sendMessage, myId, matchId,
-    dateSuggestion, dateLoading, acceptDate, requestNewPlace,
+    dateSuggestion, dateLoading, acceptDate, requestNewPlace, editDate,
     mensajeRechazado, clearMensajeRechazado, deleteConversation,
   } = useChat(userId);
   const { online, lastSeen } = usePresence(userId);
@@ -394,6 +570,10 @@ export default function ChatScreen() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const listRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
+  // true mientras el usuario está pegado al final de la lista. Los auto-scrolls
+  // solo se disparan en ese caso: si está leyendo mensajes antiguos (o la
+  // tarjeta de cita), nada debe regresarlo al fondo.
+  const nearBottomRef = useRef(true);
   const { initiateCall } = useCall();
   const [imageUploading, setImageUploading] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
@@ -434,7 +614,9 @@ export default function ChatScreen() {
     const show = Keyboard.addListener('keyboardDidShow', (e) => {
       setKeyboardHeight(e.endCoordinates.height);
       setShowEmoji(false);
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+      if (nearBottomRef.current) {
+        setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+      }
     });
     const hide = Keyboard.addListener('keyboardDidHide', () => {
       setKeyboardHeight(0);
@@ -443,17 +625,30 @@ export default function ChatScreen() {
   }, []);
 
   useEffect(() => {
-    if (messages.length > 0) {
+    if (messages.length > 0 && nearBottomRef.current) {
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 150);
     }
   }, [messages.length]);
 
-  // Scroll cuando aparece sugerencia de cita
+  // Scroll cuando APARECE la sugerencia de cita (o cambia de restaurante).
+  // Se usa una clave estable en vez del objeto: el polling de respaldo crea
+  // objetos nuevos idénticos y antes esto forzaba scrollToEnd repetidamente,
+  // "rompiendo" el desplazamiento del chat.
+  const suggestionKey = dateSuggestion
+    ? `${dateSuggestion.matchId}:${dateSuggestion.recomendacion?.restauranteId ?? ''}`
+    : null;
   useEffect(() => {
-    if (dateSuggestion) {
+    if (suggestionKey) {
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 300);
     }
-  }, [dateSuggestion]);
+  }, [suggestionKey]);
+
+  // Mantener actualizado si el usuario está al final de la lista
+  const handleListScroll = useCallback((e: any) => {
+    const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
+    nearBottomRef.current =
+      contentOffset.y + layoutMeasurement.height >= contentSize.height - 120;
+  }, []);
 
   const handleSend = useCallback((textOverride?: string) => {
     const text = (textOverride || input).trim();
@@ -666,7 +861,15 @@ export default function ChatScreen() {
               />
             )}
             showsVerticalScrollIndicator={false}
-            onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+            onScroll={handleListScroll}
+            scrollEventThrottle={64}
+            onContentSizeChange={() => {
+              // Solo seguir el contenido si el usuario ya estaba al final;
+              // si está leyendo arriba, no lo regresamos al fondo.
+              if (nearBottomRef.current) {
+                listRef.current?.scrollToEnd({ animated: false });
+              }
+            }}
             keyboardShouldPersistTaps="handled"
             ListFooterComponent={
               dateSuggestion ? (
@@ -675,6 +878,7 @@ export default function ChatScreen() {
                   myId={myId}
                   onAccept={() => acceptDate(dateSuggestion.matchId)}
                   onNewPlace={() => requestNewPlace(dateSuggestion.matchId)}
+                  onEditDate={(fecha) => editDate(dateSuggestion.matchId, fecha)}
                   dateLoading={dateLoading}
                   colors={colors}
                   isDark={isDark}
@@ -1024,6 +1228,10 @@ const s = StyleSheet.create({
     borderWidth: 1, marginTop: 8,
   },
   dateSuggestionText: { fontSize: 16, fontWeight: '800' },
+  dateEditBtn: {
+    width: 30, height: 30, borderRadius: 15,
+    alignItems: 'center', justifyContent: 'center',
+  },
 
   dateMenuSection: { marginTop: 12 },
   dateMenuTitle: { fontSize: 12, fontWeight: '700', marginBottom: 6 },

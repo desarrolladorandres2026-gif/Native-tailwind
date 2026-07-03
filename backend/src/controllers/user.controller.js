@@ -18,6 +18,21 @@ const {
   deleteImage,
 } = require('../helpers/cloudinary');
 const { enviarCodigoVerificacionRegistro } = require('../helpers/mailer');
+const { contienePalabraOfensiva } = require('../helpers/moderador');
+
+// Revisa un mapa { etiqueta: texto | texto[] } y devuelve la etiqueta del
+// primer campo con lenguaje ofensivo, o null si todos están limpios.
+const campoConLenguajeOfensivo = (campos) => {
+  for (const [etiqueta, valor] of Object.entries(campos)) {
+    const textos = Array.isArray(valor) ? valor : [valor];
+    for (const t of textos) {
+      if (typeof t === 'string' && t.trim() && contienePalabraOfensiva(t)) {
+        return etiqueta;
+      }
+    }
+  }
+  return null;
+};
 
 // Almacén temporal en memoria para códigos de verificación de correo
 // key: correo, value: { code, expiresAt, intentos, verified }
@@ -129,6 +144,21 @@ const register = async (req, res) => {
     if (!fechaNacimiento) errores.push('La fecha de nacimiento es obligatoria');
 
     if (errores.length) return res.status(400).json({ errores });
+
+    // Moderación: rechazar lenguaje ofensivo en los campos visibles del perfil
+    const campoOfensivo = campoConLenguajeOfensivo({
+      'nombre':    nombre,
+      'apellido':  apellido,
+      'biografía': bio,
+      'ciudad':    ciudad,
+      'país':      pais,
+      'intereses': (intereses ?? []).map(i => (typeof i === 'string' ? i : i?.name ?? '')),
+    });
+    if (campoOfensivo) {
+      return res.status(400).json({
+        errores: [`El campo "${campoOfensivo}" contiene lenguaje inapropiado. Por favor sé respetuoso.`],
+      });
+    }
 
     const correoNorm = correo.trim().toLowerCase();
     if (await Usuario.findOne({ correo: correoNorm })) {
@@ -247,8 +277,11 @@ const discover = async (req, res) => {
     };
 
     // ── Filtro por distancia ──
-    if (yo.latitude != null && yo.longitude != null && settings.max_distance) {
-      // Incluir usuarios dentro del radio O usuarios que no han definido su ubicación (lat/lng null)
+    // max_distance 0 / null = sin límite (por defecto un usuario nuevo ve a todos).
+    if (yo.latitude != null && yo.longitude != null && settings.max_distance > 0) {
+      // Incluir usuarios dentro del radio O usuarios sin ubicación definida.
+      // 'location.coordinates: [0,0]' cubre docs cuyo GeoJSON quedó en el valor
+      // por defecto (nunca sincronizado con lat/lng) para no ocultarlos.
       filtro.$or = [
         {
           location: {
@@ -261,7 +294,9 @@ const discover = async (req, res) => {
           }
         },
         { latitude: null },
-        { longitude: null }
+        { longitude: null },
+        { 'location.coordinates': [0, 0] },
+        { location: { $exists: false } },
       ];
     }
 
@@ -435,6 +470,40 @@ const actualizarPerfil = async (req, res) => {
         }
       }
     });
+
+    // Moderación: rechazar lenguaje ofensivo en campos de texto visibles
+    const campoOfensivo = campoConLenguajeOfensivo({
+      'nombre':          update.first_name,
+      'apellido':        update.last_name,
+      'biografía':       update.bio,
+      'ciudad':          update.ciudad,
+      'país':            update.pais,
+      'ubicación':       update.location_label,
+      'trabajo':         update.job_title,
+      'empresa':         update.company,
+      'educación':       update.education,
+      'sitio web':       update.website,
+      'busco':           update.buscando,
+      'idiomas':         update.languages,
+      'intereses':       Array.isArray(update.interests)
+        ? update.interests.map(i => (typeof i === 'string' ? i : i?.name ?? ''))
+        : undefined,
+    });
+    if (campoOfensivo) {
+      return res.status(400).json({
+        message: `El campo "${campoOfensivo}" contiene lenguaje inapropiado. Por favor sé respetuoso.`,
+      });
+    }
+
+    // Sincronizar el GeoJSON 'location' cuando cambian lat/lng.
+    // findByIdAndUpdate NO dispara el hook pre('save') del modelo, así que sin
+    // esto 'location' se quedaba en [0,0] y el usuario desaparecía del
+    // discover de quienes filtran por distancia.
+    const lat = update.latitude !== undefined ? update.latitude : req.usuario.latitude;
+    const lng = update.longitude !== undefined ? update.longitude : req.usuario.longitude;
+    if ((update.latitude !== undefined || update.longitude !== undefined) && lat != null && lng != null) {
+      update.location = { type: 'Point', coordinates: [lng, lat] };
+    }
 
     const usuario = await Usuario.findByIdAndUpdate(
       req.usuario._id, update, { new: true, runValidators: true }

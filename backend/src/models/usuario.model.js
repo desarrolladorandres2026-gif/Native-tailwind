@@ -23,7 +23,7 @@ const photoSchema = new mongoose.Schema(
 const settingsSchema = new mongoose.Schema(
   {
     // Filtros de descubrimiento
-    max_distance: { type: Number, default: 50 },   // km
+    max_distance: { type: Number, default: 0 },    // km · 0 = sin límite (ver a todos)
     min_age: { type: Number, default: 18 },
     max_age: { type: Number, default: 100 },
     show_me: { type: String, enum: ['M', 'F', 'ALL'], default: 'ALL' },

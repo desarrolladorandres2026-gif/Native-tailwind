@@ -4,10 +4,9 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator, KeyboardAvoidingView,
   Platform, Animated, Dimensions, Image, Keyboard,
-  StatusBar, Modal,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -19,6 +18,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useCustomAlert } from '../hooks/useCustomAlert';
 import { authService } from '../components/services/authService';
 import StepIndicator from '../components/registration/StepIndicator';
+import BirthDatePickerModal from '../components/ui/BirthDatePickerModal';
 import { getAge } from '../components/utils/age';
 import { boxShadow } from '../components/utils/shadow';
 import { useTheme } from '../theme/ThemeContext';
@@ -339,22 +339,6 @@ export default function RegisterScreen() {
     }
   };
 
-  // Android: el picker es un diálogo modal nativo (no inline como iOS).
-  // Usamos el API imperativo —recomendado por la propia librería— porque el
-  // componente declarativo en modo spinner reseteaba la fecha al año por
-  // defecto. La fecha solo se guarda al pulsar OK (event.type === 'set').
-  const openAndroidDatePicker = () => {
-    DateTimePickerAndroid.open({
-      value: fechaNacimiento || new Date(2000, 0, 1),
-      mode: 'date',
-      display: 'spinner',
-      maximumDate: new Date(),
-      onChange: (event, date) => {
-        if (event.type === 'set' && date) setFechaNacimiento(date);
-      },
-    });
-  };
-
   const handleFinalRegister = async () => {
     if (!validateStep()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -542,9 +526,9 @@ export default function RegisterScreen() {
 
             <View style={s.inputGroup}>
               <Text style={[s.label, { color: colors.textDim }]}>Fecha de nacimiento</Text>
-              <TouchableOpacity 
-                style={[s.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.glassBorder }, isValidationActive && !fechaNacimiento && { borderColor: colors.error, backgroundColor: `${colors.error}10` }]} 
-                onPress={() => { if (Platform.OS === 'android') openAndroidDatePicker(); else setShowDatePicker(true); }}
+              <TouchableOpacity
+                style={[s.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.glassBorder }, isValidationActive && !fechaNacimiento && { borderColor: colors.error, backgroundColor: `${colors.error}10` }]}
+                onPress={() => setShowDatePicker(true)}
               >
                 <Ionicons name="calendar-outline" size={20} color={colors.textLight} />
                 <Text style={[s.input, { color: fechaNacimiento ? colors.text : colors.textLight, marginTop: 4 }]}>
@@ -552,30 +536,14 @@ export default function RegisterScreen() {
                 </Text>
                 <Ionicons name="chevron-down" size={18} color={colors.textLight} />
               </TouchableOpacity>
-              {showDatePicker && Platform.OS === 'ios' && (
-                <Modal transparent animationType="fade" visible={showDatePicker}>
-                  <TouchableOpacity
-                    style={s.datePickerOverlay}
-                    activeOpacity={1}
-                    onPress={() => setShowDatePicker(false)}
-                  >
-                    <TouchableOpacity activeOpacity={1} style={[s.datePickerSheet, { backgroundColor: colors.card }]}>
-                      <View style={[s.datePickerHeader, { borderBottomColor: colors.glassBorder }]}>
-                        <TouchableOpacity onPress={() => setShowDatePicker(false)} activeOpacity={0.7}>
-                          <Text style={[s.datePickerDone, { color: colors.primary }]}>Listo</Text>
-                        </TouchableOpacity>
-                      </View>
-                      <DateTimePicker
-                        value={fechaNacimiento || new Date(2000, 0, 1)}
-                        mode="date" display="spinner" maximumDate={new Date()}
-                        themeVariant={isDark ? 'dark' : 'light'}
-                        // En iOS el spinner es inline: actualizamos en vivo y cerramos con "Listo".
-                        onChange={(_, date) => { if (date) setFechaNacimiento(date); }}
-                      />
-                    </TouchableOpacity>
-                  </TouchableOpacity>
-                </Modal>
-              )}
+              {/* Selector unificado día/mes/año (JS puro). Sustituye al spinner
+                  nativo de Android, cuya rueda de año rebotaba al valor inicial. */}
+              <BirthDatePickerModal
+                visible={showDatePicker}
+                value={fechaNacimiento}
+                onClose={() => setShowDatePicker(false)}
+                onConfirm={(date) => { setFechaNacimiento(date); setShowDatePicker(false); }}
+              />
             </View>
 
             <View style={s.inputGroup}>
@@ -1119,28 +1087,5 @@ const s = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     textAlign: 'center',
-  },
-
-  // Date Picker (iOS modal)
-  datePickerOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  datePickerSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingBottom: 20,
-  },
-  datePickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-  },
-  datePickerDone: {
-    fontSize: 17,
-    fontWeight: '700',
   },
 });

@@ -533,7 +533,9 @@ export default function SettingsScreen() {
               <Text style={[s.valueText, { color: colors.primary }]}>{localSettings?.min_age || 18} - {localSettings?.max_age || 40}</Text>
             ), () => setShowDiscoveryModal(true))}
             {renderOption('Distancia Máxima', 'location-outline', (
-              <Text style={[s.valueText, { color: colors.primary }]}>{localSettings?.max_distance || 50} km</Text>
+              <Text style={[s.valueText, { color: colors.primary }]}>
+                {localSettings?.max_distance ? `${localSettings.max_distance} km` : 'Sin límite'}
+              </Text>
             ), () => setShowDiscoveryModal(true))}
             {renderOption('Solo perfiles verificados', 'shield-checkmark-outline', (
               <Switch 
@@ -705,14 +707,15 @@ function DiscoverySettingsModal({ visible, onClose, settings, onSave }: any) {
   const [showMe, setShowMe] = useState(settings?.show_me || 'ALL');
   const [minAge, setMinAge] = useState(settings?.min_age || 18);
   const [maxAge, setMaxAge] = useState(settings?.max_age || 40);
-  const [maxDist, setMaxDist] = useState(settings?.max_distance || 50);
+  // 0 = sin límite de distancia (ver a todos)
+  const [maxDist, setMaxDist] = useState(settings?.max_distance ?? 0);
 
   useEffect(() => {
     if (settings) {
       setShowMe(settings.show_me || 'ALL');
       setMinAge(settings.min_age || 18);
       setMaxAge(settings.max_age || 40);
-      setMaxDist(settings.max_distance || 50);
+      setMaxDist(settings.max_distance ?? 0);
     }
   }, [settings, visible]);
 
@@ -788,14 +791,18 @@ function DiscoverySettingsModal({ visible, onClose, settings, onSave }: any) {
             </TouchableOpacity>
           </View>
 
-          {/* Distancia máxima */}
-          <Text style={[sp.label, { color: colors.textDim }]}>DISTANCIA MÁXIMA ({maxDist} km)</Text>
+          {/* Distancia máxima · 0 = sin límite */}
+          <Text style={[sp.label, { color: colors.textDim }]}>
+            DISTANCIA MÁXIMA ({maxDist > 0 ? `${maxDist} km` : 'Sin límite'})
+          </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 30, justifyContent: 'center', gap: 20 }}>
-            <TouchableOpacity onPress={() => adjustValue(setMaxDist, maxDist, -5, 5, 200)} style={[s.stepperBtn, { backgroundColor: `${colors.glassBorder}30` }]}>
+            <TouchableOpacity onPress={() => adjustValue(setMaxDist, maxDist, -5, 0, 200)} style={[s.stepperBtn, { backgroundColor: `${colors.glassBorder}30` }]}>
               <Ionicons name="remove" size={24} color={colors.text} />
             </TouchableOpacity>
-            <Text style={{ fontSize: 22, fontWeight: '800', color: colors.primary, minWidth: 60, textAlign: 'center' }}>{maxDist}</Text>
-            <TouchableOpacity onPress={() => adjustValue(setMaxDist, maxDist, 5, 5, 200)} style={[s.stepperBtn, { backgroundColor: `${colors.glassBorder}30` }]}>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: colors.primary, minWidth: 80, textAlign: 'center' }}>
+              {maxDist > 0 ? maxDist : '∞'}
+            </Text>
+            <TouchableOpacity onPress={() => adjustValue(setMaxDist, maxDist, 5, 0, 200)} style={[s.stepperBtn, { backgroundColor: `${colors.glassBorder}30` }]}>
               <Ionicons name="add" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>

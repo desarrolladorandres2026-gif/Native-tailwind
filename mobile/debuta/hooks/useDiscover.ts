@@ -14,7 +14,7 @@ function calcSuperlikeState(lastUsed: string | null): { available: boolean; days
   return { available: false, daysLeft: Math.ceil((SUPERLIKE_COOLDOWN - elapsed) / (24 * 60 * 60 * 1000)) };
 }
 
-const PAGE_SIZE        = 10;
+const PAGE_SIZE        = 30;
 const PREFETCH_THRESH  = 3; // carga más cuando quedan menos de 3 perfiles
 
 export function useDiscover() {
@@ -24,9 +24,12 @@ export function useDiscover() {
   const [superlikeAvailable, setSuperlikeAvailable] = useState(true);
   const [superlikeDaysLeft,  setSuperlikeDaysLeft]  = useState(0);
   const swipingRef     = useRef(false);
-  const pageRef        = useRef(1);
   const hasMoreRef     = useRef(true);
   const loadingMoreRef = useRef(false);
+  // Perfiles ya deslizados en esta sesión. El backend puede tardar en registrar
+  // el like/dislike, así que sin este guard un fetch inmediato los devolvería
+  // y "volverían a aparecer" en la pila.
+  const swipedIdsRef   = useRef<Set<string>>(new Set());
 
   // Carga el estado del superlike desde AsyncStorage al montar
   useEffect(() => {
@@ -40,15 +43,14 @@ export function useDiscover() {
   const fetchProfiles = useCallback(async () => {
     const token = await getToken();
     if (!token) { setLoading(false); return; }
-    // Reset de paginación en cada carga inicial
-    pageRef.current    = 1;
     hasMoreRef.current = true;
     setLoading(true);
     try {
       const data = await api.get<{ usuarios: UserProfile[] }>(
         `/users/discover?pagina=1&limite=${PAGE_SIZE}`
       );
-      const lista = Array.isArray(data.usuarios) ? data.usuarios : [];
+      const lista = (Array.isArray(data.usuarios) ? data.usuarios : [])
+        .filter(p => !swipedIdsRef.current.has(p.id));
       setProfiles(lista);
       if (lista.length < PAGE_SIZE) hasMoreRef.current = false;
     } catch (e) {
@@ -58,21 +60,26 @@ export function useDiscover() {
     }
   }, []);
 
-  // Carga la siguiente página y la agrega al final de la lista
+  // Carga más perfiles y los agrega al final de la lista.
+  // IMPORTANTE: siempre se pide la página 1. El backend ya excluye a los
+  // usuarios con los que interactuaste, así que el conjunto "pendiente" se
+  // encoge con cada swipe; paginar con skip sobre ese conjunto desplazado
+  // saltaba perfiles (nunca aparecían) que luego "volvían a aparecer" en una
+  // recarga. Los duplicados con la pila actual se filtran por id.
   const loadMoreProfiles = useCallback(async () => {
     if (!hasMoreRef.current || loadingMoreRef.current) return;
     loadingMoreRef.current = true;
-    const nextPage = pageRef.current + 1;
     try {
       const data = await api.get<{ usuarios: UserProfile[] }>(
-        `/users/discover?pagina=${nextPage}&limite=${PAGE_SIZE}`
+        `/users/discover?pagina=1&limite=${PAGE_SIZE}`
       );
-      const nuevos = Array.isArray(data.usuarios) ? data.usuarios : [];
-      if (nuevos.length === 0 || nuevos.length < PAGE_SIZE) {
+      const recibidos = Array.isArray(data.usuarios) ? data.usuarios : [];
+      if (recibidos.length < PAGE_SIZE) {
+        // El servidor ya no tiene más perfiles pendientes que estos
         hasMoreRef.current = false;
       }
+      const nuevos = recibidos.filter(p => !swipedIdsRef.current.has(p.id));
       if (nuevos.length > 0) {
-        pageRef.current = nextPage;
         setProfiles(prev => {
           const existingIds = new Set(prev.map(p => p.id));
           return [...prev, ...nuevos.filter(p => !existingIds.has(p.id))];
@@ -97,10 +104,14 @@ export function useDiscover() {
     swipingRef.current = true;
     setSwiping(true);
 
+    // Registrar el swipe ANTES de cualquier fetch para que el perfil no
+    // reaparezca si el servidor aún no ha procesado el like/dislike.
+    swipedIdsRef.current.add(userId);
+
     // Actualización optimista: quitamos el perfil de la UI antes de esperar al servidor
     setProfiles(prev => {
       const siguiente = prev.filter(p => p.id !== userId);
-      // Precarga la siguiente página cuando quedan pocos perfiles
+      // Precarga más perfiles cuando quedan pocos
       if (siguiente.length < PREFETCH_THRESH) loadMoreProfiles();
       return siguiente;
     });
@@ -125,12 +136,18 @@ export function useDiscover() {
       // Error esperado (ya interactuaste o similar) → no revertir
       if (e?.status === 400) return null;
       // El servidor rechazó el superlike por cooldown → sincronizar estado local
+      // y devolver el perfil a la pila (no hubo interacción real).
       if (direction === 'superlike' && e?.status === 429) {
         setSuperlikeAvailable(false);
         setSuperlikeDaysLeft(e?.diasRestantes ?? 1);
+        swipedIdsRef.current.delete(userId);
+        if (profileSnapshot) {
+          setProfiles(prev => [profileSnapshot, ...prev.filter(p => p.id !== userId)]);
+        }
         return null;
       }
       // Error de red u otro error inesperado → devolver el perfil a la lista
+      swipedIdsRef.current.delete(userId);
       if (profileSnapshot) {
         setProfiles(prev => [profileSnapshot, ...prev.filter(p => p.id !== userId)]);
       }
